@@ -1,0 +1,41 @@
+name: build-iso
+
+# Builds the [h3xdos] packages and the H3XD ISO the same way the WSL build distro does.
+# Started by hand until a first run on GitHub has confirmed it; releases are built locally.
+on:
+  workflow_dispatch:
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    container:
+      image: archlinux:latest
+      # mkarchiso mounts and chroots inside the container.
+      options: --privileged
+    env:
+      H3XDOS_PROJECT_DIR: /h3xdos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lay out the project as on the build host
+        run: |
+          mkdir -p /h3xdos
+          ln -s "$GITHUB_WORKSPACE" /h3xdos/src
+
+      - name: Provision the build environment
+        run: bash scripts/provision.sh
+
+      - name: Build the [h3xdos] packages
+        run: bash scripts/repo-build.sh
+
+      - name: Build the ISO
+        run: bash scripts/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: h3xd-iso
+          path: |
+            /h3xdos/out/*.iso
+            /h3xdos/out/SHA256SUMS
+          if-no-files-found: error

@@ -2,7 +2,8 @@
 # Builds the h3xdOS ISO. Runs as root inside the h3xdos-build WSL distro.
 set -euo pipefail
 
-readonly project_dir=/mnt/a/h3xdOS
+# CI lays the project out elsewhere; on the Windows host it is A:\h3xdOS.
+readonly project_dir=${H3XDOS_PROJECT_DIR:-/mnt/a/h3xdOS}
 readonly profile_src=$project_dir/src/profile
 readonly host_out_dir=$project_dir/out
 readonly build_dir=/var/tmp/h3xdos

@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Install h3xdOS
-Comment=Install h3xdOS to this computer
+Name=Install H3XD
+Comment=Install H3XD to this computer
 Exec=sudo -E calamares
-Icon=h3xdos
+Icon=h3xd
 Terminal=false
 Categories=System;

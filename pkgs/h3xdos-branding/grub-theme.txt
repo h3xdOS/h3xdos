@@ -1,15 +1,15 @@
-# h3xdOS GRUB theme: graphite hex grid, the selected entry is the only blue element.
+# H3XD GRUB theme: the boot splash ground and mark, the selected entry is the only blue text.
 title-text: ""
 desktop-image: "background.png"
-desktop-color: "#1b1d22"
+desktop-color: "#0c0e13"
 
 + boot_menu {
-    left = 25%
-    top = 35%
-    width = 50%
-    height = 40%
-    item_color = "#dfe3e8"
-    selected_item_color = "#3281ea"
+    left = 30%
+    top = 40%
+    width = 40%
+    height = 34%
+    item_color = "#c6cbd5"
+    selected_item_color = "#1793d1"
     item_height = 32
     item_padding = 8
     item_spacing = 4
@@ -21,15 +21,15 @@ desktop-color: "#1b1d22"
     top = 80%
     width = 100%
     align = "center"
-    color = "#7d8590"
+    color = "#8b95a5"
     text = "Booting in %d s"
 }
 
 + label {
     left = 0
-    top = 85%
+    top = 92%
     width = 100%
     align = "center"
-    color = "#7d8590"
-    text = "Enter boots the selected entry, e edits it, c opens the GRUB command line"
+    color = "#8b95a5"
+    text = "H3XD Operating System  ·  Enter boots, e edits, c opens the command line"
 }

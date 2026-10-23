@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=H3XD
+Description=H3XD boot splash: the mark and a thin progress bar
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/h3xd
+ScriptFile=/usr/share/plymouth/themes/h3xd/h3xd.script

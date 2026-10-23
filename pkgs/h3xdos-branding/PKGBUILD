@@ -2,41 +2,79 @@
 
 pkgname=h3xdos-branding
 pkgver=2026.10.23
-pkgrel=1
-pkgdesc='h3xdOS identity: os-release, logo, wallpaper, GRUB theme and fastfetch preset'
+pkgrel=2
+pkgdesc='H3XD identity: os-release, icons and lockups, wallpaper, GRUB theme, Plymouth splash, fastfetch preset'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')
+depends=('hicolor-icon-theme' 'plymouth')
 makedepends=('librsvg')
+install=h3xdos-branding.install
+_icon_sizes=(16 32 48 64 128 256 512)
 # Sources are files tracked next to this PKGBUILD in git.
 source=('os-release'
-        'h3xdos.svg'
-        'hexgrid.svg'
+        'h3xd-icon.svg'
+        'h3xd-icon-16.png' 'h3xd-icon-32.png' 'h3xd-icon-48.png' 'h3xd-icon-64.png'
+        'h3xd-icon-128.png' 'h3xd-icon-256.png' 'h3xd-icon-512.png'
+        'h3xd-mark.svg'
+        'h3xd-mark-mono.svg'
+        'h3xd-lockup.svg'
+        'h3xd-compact.svg'
+        'wallpaper.svg'
+        'grub-background.svg'
         'grub-theme.txt'
+        'h3xd.plymouth'
+        'h3xd.script'
         'fastfetch-config.jsonc'
         'fastfetch-logo.txt')
-sha256sums=('SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP'
-            'SKIP')
+sha256sums=('SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 _wallpaper_size=(3840 2160)
 _grub_size=(1920 1080)
+# Design 2e draws the mark at 132 px; render it at twice that for HiDPI screens.
+_splash_mark_px=264
+_splash_bar=(200 2)
 
 build() {
-  # xfdesktop (gdk-pixbuf with glycin) and GRUB cannot read the SVG, so ship PNG renders.
-  rsvg-convert -w "${_wallpaper_size[0]}" -h "${_wallpaper_size[1]}" -o hexgrid.png hexgrid.svg
-  rsvg-convert -w "${_grub_size[0]}" -h "${_grub_size[1]}" -o grub-background.png hexgrid.svg
+  # xfdesktop (gdk-pixbuf with glycin), GRUB and Plymouth cannot read SVG, so ship PNG renders.
+  rsvg-convert -w "${_wallpaper_size[0]}" -h "${_wallpaper_size[1]}" -o wallpaper.png wallpaper.svg
+  rsvg-convert -w "${_grub_size[0]}" -h "${_grub_size[1]}" -o grub-background.png grub-background.svg
+  rsvg-convert -w "$_splash_mark_px" -h "$_splash_mark_px" -o splash-mark.png h3xd-mark.svg
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s"><rect width="100%%" height="100%%" fill="%s"/></svg>' \
+    "${_splash_bar[@]}" '#1a202b' > splash-track.svg
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s"><rect width="100%%" height="100%%" fill="%s"/></svg>' \
+    "${_splash_bar[@]}" '#c6cbd5' > splash-fill.svg
+  rsvg-convert -o splash-track.png splash-track.svg
+  rsvg-convert -o splash-fill.png splash-fill.svg
 }
 
 package() {
   install -Dm644 os-release "$pkgdir/etc/os-release"
-  install -Dm644 h3xdos.svg "$pkgdir/usr/share/pixmaps/h3xdos.svg"
-  install -Dm644 -t "$pkgdir/usr/share/backgrounds/h3xdos" hexgrid.svg hexgrid.png
-  install -Dm644 grub-theme.txt "$pkgdir/usr/share/grub/themes/h3xdos/theme.txt"
-  install -Dm644 grub-background.png "$pkgdir/usr/share/grub/themes/h3xdos/background.png"
+
+  local size
+  for size in "${_icon_sizes[@]}"; do
+    install -Dm644 "h3xd-icon-$size.png" "$pkgdir/usr/share/icons/hicolor/${size}x$size/apps/h3xd.png"
+  done
+  install -Dm644 h3xd-icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/h3xd.svg"
+  install -Dm644 h3xd-mark.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/h3xd-mark.svg"
+  install -Dm644 h3xd-icon.svg "$pkgdir/usr/share/pixmaps/h3xd.svg"
+  install -Dm644 -t "$pkgdir/usr/share/h3xd" h3xd-mark.svg h3xd-mark-mono.svg h3xd-lockup.svg h3xd-compact.svg
+
+  install -Dm644 wallpaper.svg "$pkgdir/usr/share/backgrounds/h3xd/h3xd-dark.svg"
+  install -Dm644 wallpaper.png "$pkgdir/usr/share/backgrounds/h3xd/h3xd-dark.png"
+
+  install -Dm644 grub-theme.txt "$pkgdir/usr/share/grub/themes/h3xd/theme.txt"
+  install -Dm644 grub-background.png "$pkgdir/usr/share/grub/themes/h3xd/background.png"
+
+  local splash="$pkgdir/usr/share/plymouth/themes/h3xd"
+  install -Dm644 -t "$splash" h3xd.plymouth h3xd.script
+  install -Dm644 splash-mark.png "$splash/mark.png"
+  install -Dm644 splash-track.png "$splash/track.png"
+  install -Dm644 splash-fill.png "$splash/fill.png"
+
   install -Dm644 fastfetch-config.jsonc "$pkgdir/etc/xdg/fastfetch/config.jsonc"
   install -Dm644 fastfetch-logo.txt "$pkgdir/usr/share/h3xdos/logo.txt"
 }

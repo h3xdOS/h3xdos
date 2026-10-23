@@ -1,0 +1,7 @@
+post_install() {
+  plymouth-set-default-theme h3xd
+}
+
+post_upgrade() {
+  post_install
+}

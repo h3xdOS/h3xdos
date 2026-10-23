@@ -1,0 +1,13 @@
+# h3xd-dark xfwm4 decoration, design 2f: 32 px title bar, 2 px accent border on the
+# focused window, close fills red only while focused.
+button_offset=6
+button_spacing=2
+full_width_title=true
+title_horizontal_offset=4
+title_vertical_offset_active=1
+title_vertical_offset_inactive=1
+title_shadow_active=false
+title_shadow_inactive=false
+active_text_color=#e6edf3
+inactive_text_color=#8b95a5
+maximized_offset=0

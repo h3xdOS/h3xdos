@@ -2,9 +2,9 @@
 # shellcheck disable=SC2034
 
 iso_name="h3xdos"
-iso_label="H3XDOS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
-iso_publisher="h3xdOS <https://github.com/h3xdOS/h3xdos>"
-iso_application="h3xdOS Live"
+iso_label="H3XD_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_publisher="H3XD <https://github.com/h3xdOS/h3xdos>"
+iso_application="H3XD Live"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="arch"
 bootmodes=('bios.syslinux'
@@ -16,7 +16,7 @@ bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--lon
 kernel_params_aarch64="clk_ignore_unused pd_ignore_unused arm64.nopauth"
 # ttyS0 carries the login prompt that scripts/boot-test.sh waits for; tty0 stays last so it remains /dev/console.
 # The default 256M writable layer cannot hold a distrobox image; tmpfs only takes RAM as it fills.
-kernel_params_x86_64="console=ttyS0,115200 console=tty0 cow_spacesize=4G"
+kernel_params_x86_64="console=ttyS0,115200 console=tty0 cow_spacesize=4G quiet splash"
 # mkarchiso applies an entry recursively only when the path ends in "/". The
 # h3x home needs no entry: mkarchiso creates it from /etc/skel and runs
 # chown -R for every passwd user with a uid between 1000 and 59999.

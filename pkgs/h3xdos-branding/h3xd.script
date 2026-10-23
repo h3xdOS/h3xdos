@@ -1,0 +1,63 @@
+# H3XD boot splash (design 2e): the mark, a 200 x 2 px progress bar, one line of text.
+# The password prompt matters: an encrypted disk asks for its passphrase here.
+
+Window.SetBackgroundTopColor(0.047, 0.055, 0.075);
+Window.SetBackgroundBottomColor(0.047, 0.055, 0.075);
+
+bar_width = 200;
+bar_gap = 36;
+center_x = Window.GetX() + Window.GetWidth() / 2;
+center_y = Window.GetY() + Window.GetHeight() / 2;
+
+mark = Image("mark.png");
+mark_sprite = Sprite(mark);
+mark_sprite.SetPosition(center_x - mark.GetWidth() / 2, center_y - mark.GetHeight() / 2 - bar_gap, 1);
+
+bar_y = center_y + mark.GetHeight() / 2;
+track_sprite = Sprite(Image("track.png").Scale(bar_width, 2));
+track_sprite.SetPosition(center_x - bar_width / 2, bar_y, 1);
+fill_image = Image("fill.png");
+fill_sprite = Sprite();
+fill_sprite.SetPosition(center_x - bar_width / 2, bar_y, 2);
+
+footer = Image.Text("H3XD Operating System  ·  Esc for boot log", 0.545, 0.584, 0.647, 1, "JetBrains Mono 10");
+footer_sprite = Sprite(footer);
+footer_sprite.SetPosition(center_x - footer.GetWidth() / 2, Window.GetY() + Window.GetHeight() - 40 - footer.GetHeight(), 1);
+
+fun progress_callback(duration, progress) {
+    width = Math.Int(bar_width * progress);
+    if (width > 0)
+        fill_sprite.SetImage(fill_image.Scale(width, 2));
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+
+prompt_sprite = Sprite();
+bullets_sprite = Sprite();
+
+fun display_password_callback(prompt, bullets) {
+    prompt_image = Image.Text(prompt, 0.902, 0.929, 0.953, 1, "IBM Plex Sans 12");
+    prompt_sprite.SetImage(prompt_image);
+    prompt_sprite.SetPosition(center_x - prompt_image.GetWidth() / 2, bar_y + 32, 3);
+    dots = "";
+    for (i = 0; i < bullets; i++)
+        dots += "*";
+    bullets_image = Image.Text(dots + " ", 0.902, 0.929, 0.953, 1, "JetBrains Mono 14");
+    bullets_sprite.SetImage(bullets_image);
+    bullets_sprite.SetPosition(center_x - bullets_image.GetWidth() / 2, bar_y + 64, 3);
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+fun display_normal_callback() {
+    prompt_sprite.SetImage(Image.Text("", 1, 1, 1, 0));
+    bullets_sprite.SetImage(Image.Text("", 1, 1, 1, 0));
+}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+message_sprite = Sprite();
+
+fun message_callback(text) {
+    message_image = Image.Text(text, 0.776, 0.796, 0.835, 1, "IBM Plex Sans 11");
+    message_sprite.SetImage(message_image);
+    message_sprite.SetPosition(center_x - message_image.GetWidth() / 2, bar_y + 100, 3);
+}
+Plymouth.SetMessageFunction(message_callback);

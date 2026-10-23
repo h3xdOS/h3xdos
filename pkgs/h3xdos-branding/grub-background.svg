@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- Same ground as the boot splash (design 2e), the mark above the menu. -->
+  <rect width="1920" height="1080" fill="#0c0e13"/>
+  <g transform="translate(880 150) scale(1.6)">
+    <g stroke-width="6" stroke-linejoin="round" fill="#E6EDF3" stroke="#E6EDF3">
+      <path d="M43 10 L11.9 28 L11.9 72 L43 90 Z"/>
+      <path d="M57 10 L88.1 28 L88.1 72 L57 90 Z"/>
+    </g>
+    <rect x="38" y="43" width="24" height="14" rx="2.5" fill="#1793D1"/>
+  </g>
+</svg>

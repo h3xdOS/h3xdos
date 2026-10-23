@@ -51,12 +51,12 @@ case ${1:-} in
     --notify)
         count=$(count_lines "$(pending_packages)")
         if (( count > 0 )); then
-            notify-send --app-name="System Update" --icon=h3xdos \
-                "h3xdOS updates" "$count package updates are ready. Open System Update from the menu."
+            notify-send --app-name="System Update" --icon=h3xd \
+                "H3XD updates" "$count package updates are ready. Open System Update from the menu."
         fi
         ;;
     "")
-        echo "== Arch Linux and h3xdOS packages"
+        echo "== Arch Linux and H3XD packages"
         sudo pacman -Syu
         mapfile -t present < <(existing_boxes)
         for box in "${present[@]}"; do

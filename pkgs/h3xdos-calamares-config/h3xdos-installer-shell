@@ -1,9 +1,9 @@
 #!/usr/bin/python3
-"""Live-medium shell around the h3xdOS installer.
+"""Live-medium shell around the H3XD installer.
 
-Draws the h3xdOS background behind Calamares and, once Calamares exits, offers to
+Draws the H3XD background behind Calamares and, once Calamares exits, offers to
 start it again, open the network settings, restart or power off. The live medium
-exists to install h3xdOS, so there is no desktop to fall back to.
+exists to install H3XD, so there is no desktop to fall back to.
 """
 
 import gi
@@ -16,16 +16,18 @@ INSTALLER = ["sudo", "-E", "calamares"]
 NETWORK_SETTINGS = ["nm-connection-editor"]
 RESTART = ["systemctl", "reboot"]
 POWER_OFF = ["systemctl", "poweroff"]
-WALLPAPER = "/usr/share/backgrounds/h3xdos/hexgrid.png"
-LOGO = "/usr/share/pixmaps/h3xdos.svg"
-LOGO_SIZE = 96
+WALLPAPER = "/usr/share/backgrounds/h3xd/h3xd-dark.png"
+LOGO = "/usr/share/h3xd/h3xd-lockup.svg"
+LOGO_WIDTH = 360
 
+# Sheet 2f of the H3XD design: secondary buttons on line tone, focus as a 2 px accent border.
 STYLE = b"""
-label { color: #dfe3e8; font-size: 15pt; }
-button { background: #2c2c2c; color: #dfe3e8; border: 1px solid #2c2c2c;
-         border-radius: 4px; padding: 8px 18px; box-shadow: none; }
-button:hover { background: #33363c; }
-button:focus { border-color: #3281ea; }
+label { color: #c6cbd5; font-family: "IBM Plex Sans"; font-size: 15pt; }
+button { background: #2b3240; color: #e6edf3; border: 2px solid #2b3240;
+         border-radius: 3px; padding: 8px 18px; box-shadow: none; text-shadow: none;
+         font-family: "IBM Plex Sans"; }
+button:hover { background: #3a4253; border-color: #3a4253; }
+button:focus { border-color: #1793d1; }
 """
 
 
@@ -50,7 +52,7 @@ class InstallerShell(Gtk.Window):
             self.actions.pack_start(button, False, False, 0)
 
         logo = Gtk.Image.new_from_pixbuf(
-            GdkPixbuf.Pixbuf.new_from_file_at_scale(LOGO, LOGO_SIZE, LOGO_SIZE, True))
+            GdkPixbuf.Pixbuf.new_from_file_at_scale(LOGO, LOGO_WIDTH, -1, True))
         column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24,
                          halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         column.pack_start(logo, False, False, 0)
@@ -74,7 +76,7 @@ class InstallerShell(Gtk.Window):
             GdkPixbuf.Pixbuf.new_from_file_at_scale(WALLPAPER, width, height, False))
 
     def start_installer(self):
-        self.status.set_text("Starting the h3xdOS installer")
+        self.status.set_text("Starting the H3XD installer")
         self.actions.hide()
         installer = Gio.Subprocess.new(INSTALLER, Gio.SubprocessFlags.NONE)
         installer.wait_async(None, self.on_installer_exit)

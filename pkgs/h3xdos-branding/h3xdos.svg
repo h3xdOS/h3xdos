@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <title>h3xdOS</title>
-  <polygon points="64,8 112.5,36 112.5,92 64,120 15.5,92 15.5,36" fill="#1b1d22" stroke="#3281ea" stroke-width="8"/>
-  <rect x="40" y="40" width="48" height="10" fill="#dfe3e8"/>
-  <rect x="52" y="59" width="36" height="10" fill="#dfe3e8"/>
-  <rect x="40" y="78" width="48" height="10" fill="#dfe3e8"/>
-</svg>

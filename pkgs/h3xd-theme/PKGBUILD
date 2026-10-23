@@ -1,0 +1,109 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-theme
+pkgver=1.0
+pkgrel=1
+pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('gtk3' 'ttf-ibm-plex' 'ttf-jetbrains-mono')
+makedepends=('librsvg')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('index.theme' 'gtk.css' 'notify.css' 'themerc')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+# Geometry from sheet 2f: title bar 32 px including a 2 px border, buttons 14 px.
+_title_h=32
+_border=2
+_corner_w=6
+_button_w=22
+_button_px=14
+_button_radius=2
+
+# Writes one PNG of the given size from an SVG body.
+_render() {
+  local name=$1 width=$2 height=$3 body=$4
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s">%s</svg>' \
+    "$width" "$height" "$body" > "xfwm4/$name.svg"
+  rsvg-convert -o "xfwm4/$name.png" "xfwm4/$name.svg"
+  rm "xfwm4/$name.svg"
+}
+
+# Title-bar background: border line on top, title color below.
+_title_bg() {
+  local width=$1 border=$2 title=$3
+  printf '<rect width="%s" height="%s" fill="%s"/><rect y="%s" width="%s" height="%s" fill="%s"/>' \
+    "$width" "$_title_h" "$border" "$_border" "$width" "$((_title_h - _border))" "$title"
+}
+
+_square() {
+  local color=$1 x=$(( (_button_w - _button_px) / 2 )) y=$(( _border + (_title_h - _border - _button_px) / 2 ))
+  printf '<rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="%s"/>' \
+    "$x" "$y" "$_button_px" "$_button_px" "$_button_radius" "$color"
+}
+
+# The window-menu button is the small split-hex used on every title bar in the design.
+_hex() {
+  local color=$1 cx=$(( _button_w / 2 )) cy=$(( _border + (_title_h - _border) / 2 ))
+  printf '<polygon points="%s,%s %s,%s %s,%s %s,%s %s,%s %s,%s" fill="%s"/>' \
+    "$cx" "$((cy - 5))" "$((cx + 5))" "$((cy - 2))" "$((cx + 5))" "$((cy + 3))" \
+    "$cx" "$((cy + 5))" "$((cx - 5))" "$((cy + 3))" "$((cx - 5))" "$((cy - 2))" "$color"
+}
+
+build() {
+  mkdir -p xfwm4
+  local state border title idle hover press close close_hover close_press menu
+  for state in active inactive; do
+    if [[ $state == active ]]; then
+      border='#1793d1' title='#12304a' idle='#3a4253' hover='#4b5366' press='#2b3240'
+      close='#e5484d' close_hover='#f07075' close_press='#c43c41' menu='#1793d1'
+    else
+      border='#1f2430' title='#1f2430' idle='#2b3240' hover='#3a4253' press='#2b3240'
+      close='#2b3240' close_hover='#e5484d' close_press='#c43c41' menu='#4b5366'
+    fi
+
+    for n in 1 2 3 4 5; do
+      _render "title-$n-$state" 1 "$_title_h" "$(_title_bg 1 "$border" "$title")"
+    done
+    _render "top-left-$state" "$_corner_w" "$_title_h" \
+      "<path d=\"M4 0H$_corner_w V$_title_h H0 V4 A4 4 0 0 1 4 0Z\" fill=\"$border\"/><path d=\"M$_border $_border H$_corner_w V$_title_h H$_border Z\" fill=\"$title\"/>"
+    _render "top-right-$state" "$_corner_w" "$_title_h" \
+      "<path d=\"M0 0H$((_corner_w - 4)) A4 4 0 0 1 $_corner_w 4 V$_title_h H0Z\" fill=\"$border\"/><path d=\"M0 $_border H$((_corner_w - _border)) V$_title_h H0Z\" fill=\"$title\"/>"
+    _render "left-$state" "$_border" 1 "<rect width=\"$_border\" height=\"1\" fill=\"$border\"/>"
+    _render "right-$state" "$_border" 1 "<rect width=\"$_border\" height=\"1\" fill=\"$border\"/>"
+    _render "bottom-$state" 1 "$_border" "<rect width=\"1\" height=\"$_border\" fill=\"$border\"/>"
+    _render "bottom-left-$state" "$_border" "$_border" "<rect width=\"$_border\" height=\"$_border\" fill=\"$border\"/>"
+    _render "bottom-right-$state" "$_border" "$_border" "<rect width=\"$_border\" height=\"$_border\" fill=\"$border\"/>"
+
+    local bg
+    bg=$(_title_bg "$_button_w" "$border" "$title")
+    for button in hide maximize maximize-toggled; do
+      _render "$button-$state" "$_button_w" "$_title_h" "$bg$(_square "$idle")"
+    done
+    _render "close-$state" "$_button_w" "$_title_h" "$bg$(_square "$close")"
+    _render "menu-$state" "$_button_w" "$_title_h" "$bg$(_hex "$menu")"
+
+    # xfwm4 has one prelight and one pressed image per button, used on any window
+    # under the pointer, so they take the focused colors.
+    if [[ $state == active ]]; then
+      for button in hide maximize maximize-toggled; do
+        _render "$button-prelight" "$_button_w" "$_title_h" "$bg$(_square "$hover")"
+        _render "$button-pressed" "$_button_w" "$_title_h" "$bg$(_square "$press")"
+      done
+      _render "close-prelight" "$_button_w" "$_title_h" "$bg$(_square "$close_hover")"
+      _render "close-pressed" "$_button_w" "$_title_h" "$bg$(_square "$close_press")"
+      _render "menu-prelight" "$_button_w" "$_title_h" "$bg$(_hex "$menu")"
+      _render "menu-pressed" "$_button_w" "$_title_h" "$bg$(_hex "$menu")"
+    fi
+  done
+}
+
+package() {
+  local theme="$pkgdir/usr/share/themes/h3xd-dark"
+  install -Dm644 index.theme "$theme/index.theme"
+  install -Dm644 gtk.css "$theme/gtk-3.0/gtk.css"
+  install -Dm644 notify.css "$theme/xfce-notify-4.0/gtk.css"
+  install -Dm644 themerc "$theme/xfwm4/themerc"
+  install -Dm644 -t "$theme/xfwm4" xfwm4/*.png
+}

@@ -2,7 +2,7 @@
 
 pkgname=h3xdos-calamares-config
 pkgver=2026.10.23
-pkgrel=2
+pkgrel=3
 pkgdesc='Calamares installer configuration, branding and live installer session for h3xdOS'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'

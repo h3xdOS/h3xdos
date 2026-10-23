@@ -4,7 +4,8 @@
 set -euo pipefail
 shopt -s nullglob
 
-readonly project_dir=/mnt/a/h3xdOS
+# CI lays the project out elsewhere; on the Windows host it is A:\h3xdOS.
+readonly project_dir=${H3XDOS_PROJECT_DIR:-/mnt/a/h3xdOS}
 readonly pkgs_src=$project_dir/src/pkgs
 readonly host_repo_dir=$project_dir/repo
 readonly build_dir=/var/tmp/h3xdos

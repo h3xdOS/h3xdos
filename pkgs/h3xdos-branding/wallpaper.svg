@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+  <!-- Design 2a: flat desktop ground, the split-hex mark as a 4.5 % watermark off the bottom-right corner. -->
+  <rect x="-400" y="-400" width="2240" height="1700" fill="#10141b"/>
+  <g transform="translate(640 140) scale(9.8)" opacity="0.045">
+    <g stroke-width="6" stroke-linejoin="round" fill="#E6EDF3" stroke="#E6EDF3">
+      <path d="M43 10 L11.9 28 L11.9 72 L43 90 Z"/>
+      <path d="M57 10 L88.1 28 L88.1 72 L57 90 Z"/>
+    </g>
+    <rect x="38" y="43" width="24" height="14" rx="2.5" fill="#E6EDF3"/>
+  </g>
+</svg>

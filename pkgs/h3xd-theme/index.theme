@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=h3xd-dark
+Comment=H3XD dark: flat surfaces, 4 px corners, depth by tone, Arch blue accent
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=h3xd-dark
+MetacityTheme=h3xd-dark
+IconTheme=Papirus-Dark

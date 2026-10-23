@@ -4,7 +4,7 @@
 set -euo pipefail
 
 readonly host_out_dir=/mnt/a/h3xdOS/out
-readonly login_prompt='h3xdos login:'
+readonly login_prompt='h3xd login:'
 readonly kvm_timeout_s=240
 readonly tcg_timeout_s=900
 readonly poll_interval_s=2

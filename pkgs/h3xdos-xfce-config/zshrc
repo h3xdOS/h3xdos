@@ -1,0 +1,4 @@
+# H3XD prompt for every zsh user. grml's /etc/zsh/zshrc sources this file at its end,
+# after setting up its own prompt, so starship replaces that prompt with the H3XD one
+# from ~/.config/starship.toml.
+eval "$(starship init zsh)"

@@ -1,0 +1,47 @@
+/* xfce4-notifyd theme, design 2a and 2f: raised tile, no border, critical as a red tint. */
+
+#XfceNotifyWindow {
+    background-color: #1a202b;
+    border: none;
+    border-radius: 4px;
+    color: #c6cbd5;
+}
+
+#XfceNotifyWindow.critical {
+    background-color: #3a1d22;
+}
+
+#XfceNotifyWindow label#summary {
+    font-family: "IBM Plex Sans";
+    font-weight: 600;
+    color: #e6edf3;
+}
+
+#XfceNotifyWindow.critical label#summary {
+    color: #f5b5b8;
+}
+
+#XfceNotifyWindow label#body {
+    color: #c6cbd5;
+}
+
+#XfceNotifyWindow.critical label#body {
+    color: #d9a3a6;
+}
+
+#XfceNotifyWindow button {
+    background-image: none;
+    background-color: #2b3240;
+    border: none;
+    border-radius: 3px;
+    color: #e6edf3;
+}
+
+#XfceNotifyWindow button:first-child {
+    background-color: #1793d1;
+    color: #0f1320;
+}
+
+#XfceNotifyWindow progressbar progress {
+    background-color: #1793d1;
+}

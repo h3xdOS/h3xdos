@@ -3,7 +3,7 @@
 # name, which differs between machines, so it cannot ship as a static xfconf file.
 set -euo pipefail
 
-readonly wallpaper=/usr/share/backgrounds/h3xdos/hexgrid.png
+readonly wallpaper=/usr/share/backgrounds/h3xd/h3xd-dark.png
 readonly image_style_zoomed=5
 readonly marker=${XDG_CONFIG_HOME:-$HOME/.config}/h3xdos/wallpaper-set
 

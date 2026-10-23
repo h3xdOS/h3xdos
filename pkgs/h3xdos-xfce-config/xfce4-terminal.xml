@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!-- Terminal colors 0 to 15 from sheet 2f; bg #151922, fg #c6cbd5, block cursor #1793d1, selection #14405e. -->
 <channel name="xfce4-terminal" version="1.0">
   <property name="font-use-system" type="bool" value="true"/>
   <property name="color-use-theme" type="bool" value="false"/>
-  <property name="color-foreground" type="string" value="#dfe3e8"/>
-  <property name="color-background" type="string" value="#1b1d22"/>
-  <property name="color-cursor" type="string" value="#3281ea"/>
-  <property name="color-selection" type="string" value="#dfe3e8"/>
-  <property name="color-selection-background" type="string" value="#2c2c2c"/>
+  <property name="color-foreground" type="string" value="#c6cbd5"/>
+  <property name="color-background" type="string" value="#151922"/>
+  <property name="color-cursor" type="string" value="#1793d1"/>
+  <property name="color-selection" type="string" value="#e6edf3"/>
+  <property name="color-selection-background" type="string" value="#14405e"/>
+  <property name="color-palette" type="string" value="#10141b;#e5484d;#46c08a;#e2b55a;#1793d1;#a77fe0;#4fb8c9;#c6cbd5;#4b5366;#f07075;#6fd6a6;#efcb83;#5cb6e4;#c2a3ef;#7fd0dc;#e6edf3"/>
+  <property name="misc-cursor-shape" type="string" value="TERMINAL_CURSOR_SHAPE_BLOCK"/>
+  <property name="misc-menubar-default" type="bool" value="false"/>
+  <property name="scrolling-bar" type="string" value="TERMINAL_SCROLLBAR_NONE"/>
 </channel>

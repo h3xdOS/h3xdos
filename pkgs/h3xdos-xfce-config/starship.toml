@@ -1,0 +1,27 @@
+# H3XD prompt, design 2a "powerline" variant: user, path and branch as flat tone blocks
+# with 4 px ends, the time on the right, a red ">" on the input line.
+add_newline = true
+format = "[ $username ](bg:#1793d1 fg:#0f1320 bold)[ $directory ](bg:#2b3240 fg:#e6edf3)$git_branch$line_break$character"
+right_format = "$time"
+
+[username]
+show_always = true
+format = "$user"
+
+[directory]
+format = "$path"
+truncation_length = 4
+truncate_to_repo = false
+home_symbol = "~"
+
+[git_branch]
+format = "[ $branch ](bg:#3a1d22 fg:#f08a8e)"
+
+[time]
+disabled = false
+format = "[$time](fg:#8b95a5)"
+time_format = "%H:%M"
+
+[character]
+success_symbol = "[>](bold fg:#e5484d)"
+error_symbol = "[>](bold fg:#f07075)"

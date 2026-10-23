@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Text indicators for the H3XD panel (design 2a), read by xfce4-genmon-plugin:
+# a muted label followed by the value, no icons. "bat" prints nothing without a battery.
+set -euo pipefail
+
+readonly muted='#8b95a5'
+readonly value='#e6edf3'
+
+# Pango markup must not see raw &, < or > from window titles or network names.
+escape() {
+    local text=$1
+    text=${text//&/&amp;}
+    text=${text//</&lt;}
+    text=${text//>/&gt;}
+    printf '%s' "$text"
+}
+
+field() {
+    printf '<txt><span foreground="%s">%s</span> <span foreground="%s">%s</span></txt>' \
+        "$muted" "$1" "$value" "$(escape "$2")"
+    [[ -n ${3:-} ]] && printf '<txtclick>%s</txtclick>' "$3"
+    echo
+}
+
+title() {
+    local window name
+    window=$(xprop -root _NET_ACTIVE_WINDOW | awk '{ print $NF }')
+    if [[ $window == 0x0 ]]; then
+        echo '<txt></txt>'
+        return
+    fi
+    name=$(xprop -id "$window" _NET_WM_NAME | sed -n 's/^[^"]*"\(.*\)"$/\1/p')
+    printf '<txt><span foreground="%s">%s</span></txt>\n' "$muted" "$(escape "$name")"
+}
+
+network() {
+    local type state connection
+    while IFS=: read -r type state connection; do
+        if [[ $state == connected ]]; then
+            case $type in
+                wifi) field wifi "$connection" nm-connection-editor ;;
+                *) field net "$connection" nm-connection-editor ;;
+            esac
+            return
+        fi
+    done < <(nmcli -t -f TYPE,STATE,CONNECTION device)
+    field net offline nm-connection-editor
+}
+
+volume() {
+    local reading level
+    reading=$(wpctl get-volume @DEFAULT_AUDIO_SINK@)
+    if [[ $reading == *MUTED* ]]; then
+        field vol muted pavucontrol
+        return
+    fi
+    level=$(awk '{ printf "%d", $2 * 100 + 0.5 }' <<<"$reading")
+    field vol "$level" pavucontrol
+}
+
+battery() {
+    local supply
+    for supply in /sys/class/power_supply/BAT*; do
+        if [[ -r $supply/capacity ]]; then
+            field bat "$(<"$supply/capacity")%" xfce4-power-manager-settings
+            return
+        fi
+    done
+    echo '<txt></txt>'
+}
+
+case ${1:-} in
+    title) title ;;
+    network) network ;;
+    volume) volume ;;
+    battery) battery ;;
+    *) echo "usage: h3xd-panel-status title|network|volume|battery" >&2; exit 2 ;;
+esac

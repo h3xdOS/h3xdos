@@ -11,29 +11,29 @@ sidebar: widget
 navigation: widget
 
 strings:
-  productName: "h3xdOS"
-  shortProductName: "h3xdOS"
+  productName: "H3XD"
+  shortProductName: "H3XD"
   version: "rolling"
   shortVersion: "rolling"
-  versionedName: "h3xdOS rolling"
-  shortVersionedName: "h3xdOS"
-  bootloaderEntryName: "h3xdOS"
+  versionedName: "H3XD Operating System"
+  shortVersionedName: "H3XD"
+  bootloaderEntryName: "H3XD"
   productUrl: "https://github.com/h3xdOS/h3xdos"
   supportUrl: "https://github.com/h3xdOS/h3xdos/issues"
   knownIssuesUrl: "https://github.com/h3xdOS/h3xdos/issues"
   releaseNotesUrl: "https://github.com/h3xdOS/h3xdos/releases"
 
 images:
-  productIcon: "/usr/share/pixmaps/h3xdos.svg"
-  productLogo: "/usr/share/pixmaps/h3xdos.svg"
-  productWelcome: "/usr/share/pixmaps/h3xdos.svg"
+  productIcon: "/usr/share/pixmaps/h3xd.svg"
+  productLogo: "/usr/share/h3xd/h3xd-mark.svg"
+  productWelcome: "/usr/share/h3xd/h3xd-lockup.svg"
 
-# The current step is the only blue element in the sidebar.
+# Sheet 2f tokens; the current step is the only accent fill in the sidebar.
 style:
-  SidebarBackground: "#1b1d22"
-  SidebarText: "#dfe3e8"
-  SidebarTextCurrent: "#1b1d22"
-  SidebarBackgroundCurrent: "#3281ea"
+  SidebarBackground: "#151922"
+  SidebarText: "#c6cbd5"
+  SidebarTextCurrent: "#0f1320"
+  SidebarBackgroundCurrent: "#1793d1"
 
 slideshow: "show.qml"
 slideshowAPI: 2

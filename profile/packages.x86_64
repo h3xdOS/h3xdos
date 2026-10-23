@@ -43,6 +43,7 @@ gptfdisk
 grml-zsh-config
 grub
 gvfs
+h3xd-theme
 h3xdos-branding
 h3xdos-calamares-config
 h3xdos-containers
@@ -102,7 +103,6 @@ openconnect
 openpgp-card-tools
 openssh
 openvpn
-orchis-theme
 papirus-icon-theme
 partclone
 parted
@@ -111,6 +111,7 @@ pavucontrol
 pcsclite
 pipewire
 pipewire-pulse
+plymouth
 podman
 polkit-gnome
 ppp
@@ -128,6 +129,7 @@ sg3_utils
 smartmontools
 sof-firmware
 squashfs-tools
+starship
 sudo
 syslinux
 systemd-resolvconf
@@ -139,7 +141,8 @@ thunar-volman
 tmux
 tpm2-tools
 tpm2-tss
-ttf-jetbrains-mono-nerd
+ttf-ibm-plex
+ttf-jetbrains-mono
 tumbler
 udftools
 usb_modeswitch
@@ -157,6 +160,7 @@ xdg-user-dirs
 xdg-utils
 xf86-input-libinput
 xfce4-appfinder
+xfce4-genmon-plugin
 xfce4-notifyd
 xfce4-panel
 xfce4-power-manager
@@ -173,5 +177,6 @@ xfsprogs
 xfwm4
 xl2tpd
 xorg-server
+xorg-xprop
 xorg-xrandr
 zsh

@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Xfce 4.20 defaults from libxfce4ui, except that Super and Alt+F1 open the
-     Whisker menu: the panel has no applicationsmenu plugin. A custom set replaces
-     the default set entirely, so every default command is repeated here. -->
+<!-- Xfce 4.20 defaults from libxfce4ui, except that Super opens the search launcher
+     of design 2b and Alt+F1 the Whisker menu: the panel has no applicationsmenu plugin.
+     A custom set replaces the default set entirely, so every default command is repeated here. -->
 <channel name="xfce4-keyboard-shortcuts" version="1.0">
   <property name="commands" type="empty">
     <property name="custom" type="empty">
       <property name="override" type="bool" value="true"/>
-      <property name="Super_L" type="string" value="xfce4-popup-whiskermenu"/>
+      <property name="Super_L" type="string" value="xfce4-appfinder --collapsed"/>
       <property name="&lt;Alt&gt;F1" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Alt&gt;F2" type="string" value="xfce4-appfinder --collapsed">
         <property name="startup-notify" type="bool" value="true"/>
