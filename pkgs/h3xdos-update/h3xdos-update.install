@@ -1,0 +1,7 @@
+post_install() {
+  systemctl --global enable h3xdos-update-check.timer
+}
+
+pre_remove() {
+  systemctl --global disable h3xdos-update-check.timer
+}

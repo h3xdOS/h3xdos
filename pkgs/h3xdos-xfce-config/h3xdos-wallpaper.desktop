@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=h3xdOS wallpaper
+Exec=/usr/bin/h3xdos-xfce-wallpaper
+OnlyShowIn=XFCE;
+NoDisplay=true

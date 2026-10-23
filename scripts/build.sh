@@ -10,9 +10,6 @@ readonly stage_dir=$build_dir/profile
 readonly work_dir=$build_dir/work
 readonly out_dir=$build_dir/out
 readonly unit_dir=etc/systemd/system
-readonly wallpaper_dir=usr/share/backgrounds/h3xdos
-readonly wallpaper_width=3840
-readonly wallpaper_height=2160
 
 if (( EUID != 0 )); then
     echo "build.sh: must run as root" >&2
@@ -59,11 +56,6 @@ while read -r path target; do
     [[ -z $path || $path == \#* ]] && continue
     stage_link "$path" "$target"
 done < "$stage_dir/airootfs.symlinks"
-
-# xfdesktop (gdk-pixbuf 2.44 with glycin) shows a black desktop for the SVG,
-# so the image also ships the wallpaper rendered to PNG.
-rsvg-convert -w "$wallpaper_width" -h "$wallpaper_height" \
-    -o "$stage_dir/airootfs/$wallpaper_dir/hexgrid.png" "$stage_dir/airootfs/$wallpaper_dir/hexgrid.svg"
 
 rm -rf -- "$work_dir"
 rm -f -- "$out_dir"/*.iso

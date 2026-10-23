@@ -1,0 +1,60 @@
+/* h3xdOS palette: ink #1b1d22, panel #2c2c2c, dust #7d8590, text #dfe3e8, signal #3281ea.
+   Focus is shown by a blue border only; hover and selection keep to one carrier each. */
+
+QWidget {
+    background-color: #1b1d22;
+    color: #dfe3e8;
+    font-family: "Noto Sans";
+    font-size: 10pt;
+}
+
+QLabel {
+    background-color: transparent;
+}
+
+QPushButton {
+    background-color: #2c2c2c;
+    border: 1px solid #2c2c2c;
+    border-radius: 4px;
+    padding: 6px 16px;
+}
+
+QPushButton:hover {
+    background-color: #33363c;
+}
+
+QPushButton:focus {
+    border: 1px solid #3281ea;
+}
+
+QPushButton:disabled {
+    color: #7d8590;
+}
+
+QLineEdit, QComboBox, QSpinBox, QListView, QTreeView, QTableView, QTextBrowser, QPlainTextEdit {
+    background-color: #2c2c2c;
+    border: 1px solid #2c2c2c;
+    border-radius: 4px;
+    selection-background-color: #3281ea;
+    selection-color: #1b1d22;
+}
+
+QLineEdit:focus, QComboBox:focus, QListView:focus, QTreeView:focus {
+    border: 1px solid #3281ea;
+}
+
+QProgressBar {
+    background-color: #2c2c2c;
+    border: none;
+    border-radius: 4px;
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    background-color: #3281ea;
+    border-radius: 4px;
+}
+
+#sidebarApp {
+    background-color: #1b1d22;
+}

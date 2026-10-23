@@ -1,0 +1,61 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-xfce-config
+pkgver=2026.10.23
+pkgrel=2
+pkgdesc='h3xdOS desktop defaults: Xfce panel, theme and shortcuts, LightDM and keyboard'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('h3xdos-branding'
+         'h3xdos-containers'
+         'iwd'
+         'lightdm'
+         'lightdm-gtk-greeter'
+         'networkmanager'
+         'noto-fonts'
+         'orchis-theme'
+         'papirus-icon-theme'
+         'ttf-jetbrains-mono-nerd'
+         'xfce4-panel'
+         'xfce4-pulseaudio-plugin'
+         'xfce4-session'
+         'xfce4-settings'
+         'xfce4-terminal'
+         'xfce4-whiskermenu-plugin'
+         'xfce4-xkb-plugin'
+         'xfconf'
+         'xfdesktop'
+         'xfwm4'
+         'xorg-xrandr')
+# The installer rewrites the keyboard file; the rest are meant to be edited locally.
+backup=('etc/X11/xorg.conf.d/00-keyboard.conf'
+        'etc/lightdm/lightdm.conf.d/50-h3xdos.conf'
+        'etc/lightdm/lightdm-gtk-greeter.conf.d/50-h3xdos.conf'
+        'etc/NetworkManager/conf.d/wifi-backend.conf')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('xsettings.xml'
+        'xfwm4.xml'
+        'xfce4-panel.xml'
+        'xfce4-terminal.xml'
+        'xfce4-keyboard-shortcuts.xml'
+        'h3xdos-xfce-wallpaper'
+        'h3xdos-wallpaper.desktop'
+        'lightdm-50-h3xdos.conf'
+        'lightdm-gtk-greeter-50-h3xdos.conf'
+        '00-keyboard.conf'
+        'networkmanager-wifi-backend.conf')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 -t "$pkgdir/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml" \
+    xsettings.xml xfwm4.xml xfce4-panel.xml xfce4-terminal.xml xfce4-keyboard-shortcuts.xml
+  install -Dm755 h3xdos-xfce-wallpaper "$pkgdir/usr/bin/h3xdos-xfce-wallpaper"
+  install -Dm644 h3xdos-wallpaper.desktop "$pkgdir/etc/xdg/autostart/h3xdos-wallpaper.desktop"
+  install -Dm644 lightdm-50-h3xdos.conf "$pkgdir/etc/lightdm/lightdm.conf.d/50-h3xdos.conf"
+  install -Dm644 lightdm-gtk-greeter-50-h3xdos.conf \
+    "$pkgdir/etc/lightdm/lightdm-gtk-greeter.conf.d/50-h3xdos.conf"
+  install -Dm644 00-keyboard.conf "$pkgdir/etc/X11/xorg.conf.d/00-keyboard.conf"
+  install -Dm644 networkmanager-wifi-backend.conf "$pkgdir/etc/NetworkManager/conf.d/wifi-backend.conf"
+}

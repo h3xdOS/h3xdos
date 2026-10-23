@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# apt for h3xdOS. "apt" runs apt inside the Ubuntu distrobox and "kali-apt" inside
+# the Kali one, so .deb packages never touch the Arch host. Applications and
+# commands that the packages ship are exported to the host menu and ~/.local/bin.
+set -euo pipefail
+
+readonly manifest=/usr/share/h3xdos/distrobox.ini
+
+case ${0##*/} in
+    kali-apt) box=kali ;;
+    *) box=ubuntu ;;
+esac
+
+# distrobox refuses to run under sudo, yet "sudo apt" is how people type it:
+# drop back to the calling user, whose container it is.
+if (( EUID == 0 )); then
+    if [[ -z ${SUDO_USER:-} || $SUDO_USER == root ]]; then
+        echo "${0##*/}: run it as a normal user (with or without sudo); containers belong to users" >&2
+        exit 1
+    fi
+    exec runuser -u "$SUDO_USER" -- env -u SUDO_USER -u SUDO_UID -u SUDO_GID -u SUDO_COMMAND \
+        HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)" XDG_RUNTIME_DIR="/run/user/$SUDO_UID" \
+        "$0" "$@"
+fi
+
+in_box() {
+    distrobox enter "$box" -- "$@"
+}
+
+# Files a package ships that belong on the host: desktop entries and commands.
+# dpkg -L fails for names apt did not install; grep exits 1 when nothing matches.
+exportable_files() {
+    local pkg listing
+    for pkg in "$@"; do
+        listing=$(in_box dpkg -L "$pkg" 2>/dev/null) || continue
+        grep -E '^/usr/share/applications/[^/]+\.desktop$|^/usr/s?bin/[^/]+$' <<<"$listing" \
+            || [[ $? == 1 ]]
+    done
+}
+
+# Commands the host already has stay host commands.
+export_files() {
+    local file
+    for file in "$@"; do
+        case $file in
+            *.desktop) in_box distrobox-export --app "$file" ;;
+            *) command -v "${file##*/}" >/dev/null || in_box distrobox-export --bin "$file" ;;
+        esac
+    done
+}
+
+unexport_files() {
+    local file
+    for file in "$@"; do
+        case $file in
+            *.desktop) in_box distrobox-export --app "$file" --delete ;;
+            *) in_box distrobox-export --bin "$file" --delete ;;
+        esac
+    done
+}
+
+if ! podman container exists "$box"; then
+    distrobox assemble create --file "$manifest" --name "$box"
+fi
+
+packages=()
+for arg in "${@:2}"; do
+    [[ $arg == -* ]] || packages+=("$arg")
+done
+
+case ${1:-} in
+    remove|purge)
+        mapfile -t shipped < <(exportable_files "${packages[@]}")
+        in_box sudo apt "$@"
+        unexport_files "${shipped[@]}"
+        ;;
+    install|reinstall)
+        in_box sudo apt "$@"
+        mapfile -t shipped < <(exportable_files "${packages[@]}")
+        export_files "${shipped[@]}"
+        ;;
+    *)
+        in_box sudo apt "$@"
+        ;;
+esac

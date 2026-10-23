@@ -9,6 +9,7 @@ bind
 bolt
 brltty
 btrfs-progs
+calamares
 clonezilla
 cloud-init
 cryptsetup
@@ -42,6 +43,11 @@ gptfdisk
 grml-zsh-config
 grub
 gvfs
+h3xdos-branding
+h3xdos-calamares-config
+h3xdos-containers
+h3xdos-update
+h3xdos-xfce-config
 hdparm
 hyperv
 intel-ucode

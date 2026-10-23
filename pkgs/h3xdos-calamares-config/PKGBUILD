@@ -1,0 +1,47 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-calamares-config
+pkgver=2026.10.23
+pkgrel=2
+pkgdesc='Calamares installer configuration, branding and live installer session for h3xdOS'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('btrfs-progs'
+         'calamares'
+         'cryptsetup'
+         'dosfstools'
+         'e2fsprogs'
+         'efibootmgr'
+         'grub'
+         'gtk3'
+         'h3xdos-branding'
+         'network-manager-applet'
+         'python-gobject'
+         'qt6-declarative'
+         'rsync'
+         'sudo'
+         'xfwm4')
+_modules=('welcome' 'locale' 'keyboard' 'partition' 'users' 'finished'
+          'unpackfs' 'removeuser' 'shellprocess-removelive' 'shellprocess-keyring'
+          'shellprocess-options' 'packagechooser-options'
+          'services-systemd' 'displaymanager' 'bootloader' 'grubcfg' 'initcpiocfg')
+_branding=('branding.desc' 'show.qml' 'stylesheet.qss')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('settings.conf' 'h3xdos-install.desktop'
+        'h3xdos-installer-session' 'h3xdos-installer-shell' 'h3xdos-installer.desktop'
+        "${_modules[@]/%/.conf}" "${_branding[@]}")
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 settings.conf "$pkgdir/etc/calamares/settings.conf"
+  install -Dm644 -t "$pkgdir/etc/calamares/modules" "${_modules[@]/%/.conf}"
+  install -Dm644 -t "$pkgdir/etc/calamares/branding/h3xdos" "${_branding[@]}"
+  install -Dm644 h3xdos-install.desktop "$pkgdir/usr/share/applications/h3xdos-install.desktop"
+  install -Dm755 h3xdos-installer-session "$pkgdir/usr/bin/h3xdos-installer-session"
+  install -Dm755 h3xdos-installer-shell "$pkgdir/usr/lib/h3xdos/installer-shell"
+  install -Dm644 h3xdos-installer.desktop "$pkgdir/usr/share/xsessions/h3xdos-installer.desktop"
+}

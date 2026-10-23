@@ -1,0 +1,35 @@
+# h3xdOS GRUB theme: graphite hex grid, the selected entry is the only blue element.
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#1b1d22"
+
++ boot_menu {
+    left = 25%
+    top = 35%
+    width = 50%
+    height = 40%
+    item_color = "#dfe3e8"
+    selected_item_color = "#3281ea"
+    item_height = 32
+    item_padding = 8
+    item_spacing = 4
+}
+
++ label {
+    id = "__timeout__"
+    left = 0
+    top = 80%
+    width = 100%
+    align = "center"
+    color = "#7d8590"
+    text = "Booting in %d s"
+}
+
++ label {
+    left = 0
+    top = 85%
+    width = 100%
+    align = "center"
+    color = "#7d8590"
+    text = "Enter boots the selected entry, e edits it, c opens the GRUB command line"
+}

@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Updates h3xdOS: Arch Linux and [h3xdos] packages through pacman (the [h3xdos]
+# repo is served from GitHub Pages), then the Ubuntu and Kali distrobox
+# containers, and reports the newest h3xdOS release published on GitHub.
+set -euo pipefail
+
+readonly release_api=https://api.github.com/repos/h3xdOS/h3xdos/releases/latest
+readonly releases_page=https://github.com/h3xdOS/h3xdos/releases
+readonly boxes=(ubuntu kali)
+readonly network_timeout_s=15
+readonly updates_available=10
+
+usage() {
+    echo "usage: h3xdos-update [--check | --notify]" >&2
+    exit 2
+}
+
+# checkupdates exits 2 when nothing is pending and 1 when it cannot sync.
+pending_packages() {
+    checkupdates || [[ $? == 2 ]]
+}
+
+# grep -c prints 0 and exits 1 when nothing matches.
+count_lines() {
+    grep -c . <<<"$1" || [[ $? == 1 ]]
+}
+
+latest_release() {
+    curl -fsS --max-time "$network_timeout_s" "$release_api" | jq -r '.tag_name'
+}
+
+existing_boxes() {
+    local box
+    for box in "${boxes[@]}"; do
+        if podman container exists "$box"; then
+            echo "$box"
+        fi
+    done
+}
+
+case ${1:-} in
+    --check)
+        pending=$(pending_packages)
+        count=$(count_lines "$pending")
+        echo "Package updates: $count"
+        if (( count > 0 )); then
+            printf '%s\n' "$pending"
+            exit "$updates_available"
+        fi
+        ;;
+    --notify)
+        count=$(count_lines "$(pending_packages)")
+        if (( count > 0 )); then
+            notify-send --app-name="System Update" --icon=h3xdos \
+                "h3xdOS updates" "$count package updates are ready. Open System Update from the menu."
+        fi
+        ;;
+    "")
+        echo "== Arch Linux and h3xdOS packages"
+        sudo pacman -Syu
+        mapfile -t present < <(existing_boxes)
+        for box in "${present[@]}"; do
+            echo "== $box container"
+            distrobox upgrade "$box"
+        done
+        echo "== h3xdOS releases"
+        if tag=$(latest_release); then
+            echo "Newest release: $tag ($releases_page)"
+        else
+            echo "No release information from GitHub; see $releases_page" >&2
+        fi
+        ;;
+    *)
+        usage
+        ;;
+esac

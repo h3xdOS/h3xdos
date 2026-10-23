@@ -1,0 +1,43 @@
+---
+componentName: h3xdos
+
+welcomeStyleCalamares: false
+welcomeExpandingLogo: true
+# The live medium runs only the installer, so it takes the whole screen.
+windowExpanding: fullscreen
+windowSize: 1000px,660px
+windowPlacement: center
+sidebar: widget
+navigation: widget
+
+strings:
+  productName: "h3xdOS"
+  shortProductName: "h3xdOS"
+  version: "rolling"
+  shortVersion: "rolling"
+  versionedName: "h3xdOS rolling"
+  shortVersionedName: "h3xdOS"
+  bootloaderEntryName: "h3xdOS"
+  productUrl: "https://github.com/h3xdOS/h3xdos"
+  supportUrl: "https://github.com/h3xdOS/h3xdos/issues"
+  knownIssuesUrl: "https://github.com/h3xdOS/h3xdos/issues"
+  releaseNotesUrl: "https://github.com/h3xdOS/h3xdos/releases"
+
+images:
+  productIcon: "/usr/share/pixmaps/h3xdos.svg"
+  productLogo: "/usr/share/pixmaps/h3xdos.svg"
+  productWelcome: "/usr/share/pixmaps/h3xdos.svg"
+
+# The current step is the only blue element in the sidebar.
+style:
+  SidebarBackground: "#1b1d22"
+  SidebarText: "#dfe3e8"
+  SidebarTextCurrent: "#1b1d22"
+  SidebarBackgroundCurrent: "#3281ea"
+
+slideshow: "show.qml"
+slideshowAPI: 2
+
+# Installer logs never leave the machine.
+uploadServer:
+  type: "none"

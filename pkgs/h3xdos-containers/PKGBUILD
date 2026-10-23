@@ -1,0 +1,32 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-containers
+pkgver=2026.10.23
+pkgrel=1
+pkgdesc='Ubuntu and Kali distrobox containers for h3xdOS, with apt and kali-apt on the host'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('distrobox'
+         'fuse-overlayfs'
+         'podman'
+         'util-linux'
+         'xfce4-terminal')
+# /usr/bin/apt here is a front end for the Ubuntu container, not Debian's apt.
+conflicts=('apt')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('apt'
+        'h3xdos-box'
+        'distrobox.ini'
+        'h3xdos-ubuntu.desktop'
+        'h3xdos-kali.desktop'
+        'local-bin.sh')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm755 -t "$pkgdir/usr/bin" apt h3xdos-box
+  ln -s apt "$pkgdir/usr/bin/kali-apt"
+  install -Dm644 distrobox.ini "$pkgdir/usr/share/h3xdos/distrobox.ini"
+  install -Dm644 -t "$pkgdir/usr/share/applications" h3xdos-ubuntu.desktop h3xdos-kali.desktop
+  install -Dm644 local-bin.sh "$pkgdir/etc/profile.d/h3xdos-local-bin.sh"
+}

@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=h3xdOS installer
+Comment=Live medium session that runs only the h3xdOS installer
+Exec=/usr/bin/h3xdos-installer-session

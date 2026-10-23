@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for h3xdOS updates after login and then daily
+
+[Timer]
+OnStartupSec=10min
+OnUnitActiveSec=1d
+
+[Install]
+WantedBy=timers.target

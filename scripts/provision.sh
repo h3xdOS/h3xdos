@@ -8,8 +8,6 @@ readonly toolchain=(archiso git base-devel rsync reflector shellcheck namcap qem
 # virtio-vga-gl loads the virtio-gpu, virtio-vga and virtio-gpu-gl modules, which pacman does not pull in.
 readonly viewer_packages=(qemu-ui-gtk qemu-ui-opengl qemu-hw-display-virtio-vga-gl
     qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga qemu-hw-display-virtio-gpu-gl)
-# build.sh renders the wallpaper with rsvg-convert; librsvg also arrives as a dependency of viewer_packages.
-readonly render_packages=(librsvg)
 readonly mirror_countries=Czechia,Germany,Austria,Slovakia,Poland
 readonly mirror_count=10
 readonly builder_sudoers=/etc/sudoers.d/10-builder-pacman
@@ -27,7 +25,7 @@ pacman-key --populate archlinux
 pacman -Syu --noconfirm --needed reflector
 reflector --country "$mirror_countries" --protocol https --age 12 --latest 20 \
     --sort rate --number "$mirror_count" --save /etc/pacman.d/mirrorlist
-pacman -Syu --noconfirm --needed "${toolchain[@]}" "${viewer_packages[@]}" "${render_packages[@]}"
+pacman -Syu --noconfirm --needed "${toolchain[@]}" "${viewer_packages[@]}"
 
 # makepkg refuses to run as root, and makepkg -s needs pacman for dependencies.
 id builder &>/dev/null || useradd -m -s /bin/bash builder

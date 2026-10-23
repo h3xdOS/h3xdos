@@ -1,0 +1,42 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-branding
+pkgver=2026.10.23
+pkgrel=1
+pkgdesc='h3xdOS identity: os-release, logo, wallpaper, GRUB theme and fastfetch preset'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+makedepends=('librsvg')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('os-release'
+        'h3xdos.svg'
+        'hexgrid.svg'
+        'grub-theme.txt'
+        'fastfetch-config.jsonc'
+        'fastfetch-logo.txt')
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+_wallpaper_size=(3840 2160)
+_grub_size=(1920 1080)
+
+build() {
+  # xfdesktop (gdk-pixbuf with glycin) and GRUB cannot read the SVG, so ship PNG renders.
+  rsvg-convert -w "${_wallpaper_size[0]}" -h "${_wallpaper_size[1]}" -o hexgrid.png hexgrid.svg
+  rsvg-convert -w "${_grub_size[0]}" -h "${_grub_size[1]}" -o grub-background.png hexgrid.svg
+}
+
+package() {
+  install -Dm644 os-release "$pkgdir/etc/os-release"
+  install -Dm644 h3xdos.svg "$pkgdir/usr/share/pixmaps/h3xdos.svg"
+  install -Dm644 -t "$pkgdir/usr/share/backgrounds/h3xdos" hexgrid.svg hexgrid.png
+  install -Dm644 grub-theme.txt "$pkgdir/usr/share/grub/themes/h3xdos/theme.txt"
+  install -Dm644 grub-background.png "$pkgdir/usr/share/grub/themes/h3xdos/background.png"
+  install -Dm644 fastfetch-config.jsonc "$pkgdir/etc/xdg/fastfetch/config.jsonc"
+  install -Dm644 fastfetch-logo.txt "$pkgdir/usr/share/h3xdos/logo.txt"
+}

@@ -1,0 +1,31 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-update
+pkgver=2026.10.23
+pkgrel=1
+pkgdesc='h3xdOS updater: pacman, the Ubuntu and Kali containers, and GitHub release checks'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('curl'
+         'distrobox'
+         'fakeroot'
+         'jq'
+         'libnotify'
+         'pacman-contrib'
+         'podman'
+         'sudo'
+         'xfce4-terminal')
+install=h3xdos-update.install
+# Sources are files tracked next to this PKGBUILD in git.
+source=('h3xdos-update'
+        'h3xdos-update.desktop'
+        'h3xdos-update-check.service'
+        'h3xdos-update-check.timer')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm755 h3xdos-update "$pkgdir/usr/bin/h3xdos-update"
+  install -Dm644 h3xdos-update.desktop "$pkgdir/usr/share/applications/h3xdos-update.desktop"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/user" h3xdos-update-check.service h3xdos-update-check.timer
+}

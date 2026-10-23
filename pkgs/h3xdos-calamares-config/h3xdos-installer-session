@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# X session of the live medium: a window manager for the installer's dialogs and
+# the installer shell, nothing else.
+set -euo pipefail
+
+xfwm4 &
+exec /usr/lib/h3xdos/installer-shell
