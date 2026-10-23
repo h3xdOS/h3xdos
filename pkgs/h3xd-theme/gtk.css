@@ -281,6 +281,36 @@ frame > border, .frame {
     background-color: #1a202b;
 }
 
+/* Workspace switcher, design 2a. xfce4-panel pins the padding and minimum size of its
+   toggle buttons at application priority, so the label carries the 26x23 hexagon size. */
+#pager-2 button {
+    background-color: transparent;
+    background-image: -gtk-scaled(url("assets/ws-idle.png"), url("assets/ws-idle@2.png"));
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 26px 23px;
+    margin: 0 3px;
+    color: #c6cbd5;
+    font-size: 11px;
+}
+
+#pager-2 button:hover {
+    background-color: transparent;
+    background-image: -gtk-scaled(url("assets/ws-hover.png"), url("assets/ws-hover@2.png"));
+}
+
+#pager-2 button:checked {
+    background-color: transparent;
+    background-image: -gtk-scaled(url("assets/ws-active.png"), url("assets/ws-active@2.png"));
+    color: #0f1320;
+    font-weight: 600;
+}
+
+#pager-2 button label {
+    min-width: 24px;
+    min-height: 21px;
+}
+
 /* LightDM greeter, design 2c. */
 #login_window, #content_frame, #buttonbox_frame, #power_window {
     background-color: #181c25;

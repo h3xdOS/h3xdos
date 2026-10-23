@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# Detects the graphics hardware and the hypervisor and installs the matching drivers from
+# the Arch repos: Vulkan and hardware video decoding for Intel and AMD, the NVIDIA driver
+# for Turing and newer, guest tools inside virtual machines. Without --install it only
+# reports what it found.
+set -euo pipefail
+
+# Tests point this at a fake sysfs tree.
+readonly pci_dir=${H3XDOS_PCI_DIR:-/sys/bus/pci/devices}
+readonly display_class=0x03
+readonly vendor_intel=0x8086
+readonly vendor_amd=0x1002
+readonly vendor_nvidia=0x10de
+# nvidia-open, the only NVIDIA driver left in the Arch repos, supports Turing (device IDs
+# from 0x1e00) and newer; older cards stay on nouveau.
+readonly nvidia_open_min_device=0x1e00
+readonly kernel_pattern='linux(-lts|-zen|-hardened|-rt|-rt-lts)?'
+
+usage() {
+    echo "usage: h3xdos-drivers [--install [--noconfirm]]" >&2
+    exit 2
+}
+
+install=0
+confirm=()
+for arg in "$@"; do
+    case $arg in
+        --install) install=1 ;;
+        --noconfirm) confirm=(--noconfirm) ;;
+        *) usage ;;
+    esac
+done
+
+packages=()
+services=()
+udev_subsystems=()
+notes=()
+nvidia=0
+other_gpu=0
+
+for dev in "$pci_dir"/*; do
+    [[ $(<"$dev/class") == "$display_class"* ]] || continue
+    vendor=$(<"$dev/vendor")
+    device=$(<"$dev/device")
+    name=$(lspci -s "${dev##*/}" | cut -d' ' -f2-)
+    echo "GPU: ${vendor#0x}:${device#0x}${name:+ $name}"
+    case $vendor in
+        "$vendor_intel")
+            other_gpu=1
+            # intel-media-driver serves Broadwell and newer, libva-intel-driver the older
+            # generations; libva picks whichever fits.
+            packages+=(vulkan-intel intel-media-driver libva-intel-driver)
+            ;;
+        "$vendor_amd")
+            other_gpu=1
+            # mesa already carries the AMD video decoding driver.
+            packages+=(vulkan-radeon)
+            ;;
+        "$vendor_nvidia")
+            if (( device >= nvidia_open_min_device )); then
+                nvidia=1
+            else
+                packages+=(vulkan-nouveau)
+                notes+=("NVIDIA ${device#0x} predates Turing and keeps the nouveau driver; the proprietary legacy driver is only in the AUR.")
+            fi
+            ;;
+    esac
+done
+
+if (( nvidia )); then
+    mapfile -t kernels < <(pacman -Qq | grep -xE "$kernel_pattern" || [[ $? == 1 ]])
+    # nvidia-open is built for the stock kernel only; other kernels need the DKMS build.
+    if [[ ${kernels[*]} == linux ]]; then
+        packages+=(nvidia-open)
+    else
+        packages+=(nvidia-open-dkms "${kernels[@]/%/-headers}")
+    fi
+    packages+=(nvidia-utils nvidia-settings)
+    if (( other_gpu )); then
+        packages+=(nvidia-prime)
+        notes+=("Hybrid graphics: start a program on the NVIDIA GPU with: prime-run <program>")
+    fi
+fi
+
+# systemd-detect-virt prints "none" and exits 1 on real hardware.
+virt=$(systemd-detect-virt --vm || [[ $? == 1 ]])
+echo "Machine: $virt"
+case $virt in
+    kvm|qemu)
+        # Proxmox and libvirt use the agent for clean shutdown and to show the address;
+        # both agents start through udev when the host provides their channel.
+        packages+=(qemu-guest-agent spice-vdagent)
+        udev_subsystems+=(virtio-ports)
+        ;;
+    oracle)
+        packages+=(virtualbox-guest-utils)
+        services+=(vboxservice.service)
+        ;;
+    vmware)
+        packages+=(open-vm-tools)
+        services+=(vmtoolsd.service vmware-vmblock-fuse.service)
+        ;;
+    microsoft)
+        packages+=(hyperv)
+        services+=(hv_kvp_daemon.service hv_vss_daemon.service)
+        ;;
+esac
+
+if (( ${#packages[@]} == 0 )); then
+    echo "No extra drivers needed."
+    exit 0
+fi
+
+# pacman -T prints the packages that are not installed and exits 127 when there are any.
+mapfile -t missing < <(pacman -T -- "${packages[@]}" || [[ $? == 127 ]])
+for package in "${packages[@]}"; do
+    state=installed
+    [[ " ${missing[*]} " == *" $package "* ]] && state=missing
+    printf '  %-24s %s\n' "$package" "$state"
+done
+for note in "${notes[@]}"; do
+    echo "Note: $note"
+done
+
+(( install )) || exit 0
+if (( ${#missing[@]} == 0 )); then
+    echo "All drivers are installed."
+    exit 0
+fi
+if (( EUID != 0 )); then
+    echo "h3xdos-drivers: --install needs root: sudo h3xdos-drivers --install" >&2
+    exit 1
+fi
+
+pacman -S --needed "${confirm[@]}" -- "${missing[@]}"
+for service in "${services[@]}"; do
+    systemctl enable --now -- "$service"
+done
+for subsystem in "${udev_subsystems[@]}"; do
+    udevadm trigger --action=add --subsystem-match="$subsystem"
+done
+if [[ " ${missing[*]} " == *" nvidia-utils "* ]]; then
+    # The initramfs has to pick up the nouveau blacklist that nvidia-utils installs.
+    mkinitcpio -P
+    echo "Restart the computer to load the NVIDIA driver."
+fi

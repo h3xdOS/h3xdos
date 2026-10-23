@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Makes Chromium the preferred web browser of Xfce once per user. xfce4-settings owns
+# the system helpers.rc and names Firefox, which H3XD does not ship; Xfce merges a user
+# helpers.rc over it key by key, and a user who picks another browser keeps that choice.
+set -euo pipefail
+
+readonly helpers=${XDG_CONFIG_HOME:-$HOME/.config}/xfce4/helpers.rc
+
+[[ -e $helpers ]] && exit 0
+mkdir -p -- "${helpers%/*}"
+printf 'WebBrowser=chromium\n' > "$helpers"

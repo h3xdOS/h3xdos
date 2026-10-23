@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=System Update
-Comment=Update h3xdOS, Arch Linux packages and the Ubuntu and Kali containers
+Comment=Update H3XD: packages, drivers, applications and the Ubuntu and Kali containers
 Exec=xfce4-terminal --hold --title="System Update" -x h3xdos-update
 Icon=system-software-update
 Terminal=false

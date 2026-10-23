@@ -48,6 +48,8 @@ for dir in "$pkgs_stage"/*/; do
     mapfile -t pkg_files < <(cd "$dir" && as_builder makepkg --packagelist)
     stale=0
     for pkg_file in "${pkg_files[@]}"; do
+        # makepkg lists a debug package even when it produces none, as for arch=any.
+        [[ $pkg_file == *-debug-* ]] && continue
         if [[ ! -e $pkg_file || -n $(find "$dir" -newer "$pkg_file" -print -quit) ]]; then
             stale=1
         fi
@@ -55,8 +57,15 @@ for dir in "$pkgs_stage"/*/; do
     if (( stale )); then
         # makepkg --syncdeps cannot resolve dependencies on our own packages, which
         # nothing compiles against, so install only what the Arch repos provide.
-        mapfile -t deps < <(cd "$dir" && as_builder makepkg --printsrcinfo \
-            | awk -F' = ' '$1 ~ /^\t(make|check)?depends$/ { print $2 }')
+        srcinfo=$(cd "$dir" && as_builder makepkg --printsrcinfo)
+        # Packages for any architecture compile nothing against their runtime
+        # dependencies, so only their build tools enter the build distro.
+        if grep -qx $'\tarch = any' <<<"$srcinfo"; then
+            dep_keys='^\t(make|check)depends$'
+        else
+            dep_keys='^\t(make|check)?depends$'
+        fi
+        mapfile -t deps < <(awk -F' = ' -v keys="$dep_keys" '$1 ~ keys { print $2 }' <<<"$srcinfo")
         official_deps=()
         for dep in "${deps[@]}"; do
             if pacman -Si -- "${dep%%[<>=]*}" &>/dev/null; then

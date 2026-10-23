@@ -1,0 +1,5 @@
+post_install() {
+  # Weekly TRIM keeps inexpensive SSDs fast; fstrim skips disks without discard support.
+  # Only on first install, so an administrator who disables it keeps it disabled.
+  systemctl enable fstrim.timer
+}

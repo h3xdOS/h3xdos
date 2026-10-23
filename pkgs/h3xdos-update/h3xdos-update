@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
-# Updates h3xdOS: Arch Linux and [h3xdos] packages through pacman (the [h3xdos]
-# repo is served from GitHub Pages), then the Ubuntu and Kali distrobox
-# containers, and reports the newest h3xdOS release published on GitHub.
+# Updates H3XD: Arch Linux and [h3xdos] packages through pacman (the [h3xdos]
+# repo is served from GitHub Pages), drivers for the detected hardware, the default
+# applications, then the Ubuntu and Kali distrobox containers, and reports the newest
+# H3XD release published on GitHub.
 set -euo pipefail
 
 readonly release_api=https://api.github.com/repos/h3xdOS/h3xdos/releases/latest
 readonly releases_page=https://github.com/h3xdOS/h3xdos/releases
+readonly config_file=/etc/h3xdos/update.conf
+readonly default_apps=h3xdos-apps
 readonly boxes=(ubuntu kali)
 readonly network_timeout_s=15
 readonly updates_available=10
+# Xfce reads the theme of these at login and their xfconf defaults when xfconfd starts,
+# which outlives a quick log out and back in; a restart loads both.
+readonly session_packages='^(h3xd-theme|h3xdos-branding|h3xdos-xfce-config)$'
 
 usage() {
     echo "usage: h3xdos-update [--check | --notify]" >&2
@@ -27,6 +33,16 @@ count_lines() {
 
 latest_release() {
     curl -fsS --max-time "$network_timeout_s" "$release_api" | jq -r '.tag_name'
+}
+
+# A step runs unless the config file sets it to no.
+enabled() {
+    [[ -r $config_file ]] || return 0
+    [[ $(awk -F= -v key="$1" '$1 == key { value = $2 } END { print value }' "$config_file") != no ]]
+}
+
+session_versions() {
+    pacman -Q | awk -v re="$session_packages" '$1 ~ re'
 }
 
 existing_boxes() {
@@ -57,17 +73,33 @@ case ${1:-} in
         ;;
     "")
         echo "== Arch Linux and H3XD packages"
+        session_before=$(session_versions)
         sudo pacman -Syu
+        if enabled install_drivers; then
+            echo "== Drivers"
+            sudo h3xdos-drivers --install
+        fi
+        # pacman -T prints what is missing; once installed, the user may remove single apps.
+        if enabled install_default_apps && ! pacman -T -- "$default_apps" >/dev/null; then
+            echo "== H3XD applications"
+            sudo pacman -S --needed -- "$default_apps"
+        fi
         mapfile -t present < <(existing_boxes)
         for box in "${present[@]}"; do
             echo "== $box container"
             distrobox upgrade "$box"
         done
-        echo "== h3xdOS releases"
+        echo "== H3XD releases"
         if tag=$(latest_release); then
             echo "Newest release: $tag ($releases_page)"
         else
             echo "No release information from GitHub; see $releases_page" >&2
+        fi
+        # pacman removes the module tree of the running kernel when it upgrades linux.
+        if [[ ! -d /usr/lib/modules/$(uname -r) ]]; then
+            echo "The kernel was updated: restart the computer to use it."
+        elif [[ $(session_versions) != "$session_before" ]]; then
+            echo "The H3XD desktop was updated: restart the computer to load it."
         fi
         ;;
     *)

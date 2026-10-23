@@ -1,0 +1,46 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xdos-apps
+pkgver=2026.10.23
+pkgrel=2
+pkgdesc='H3XD default applications: Chromium, Code - OSS, Mousepad and everyday desktop tools'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# Lightweight GTK tools where a choice exists; mpv decodes video on the GPU.
+# ffmpeg and mpv need a JACK provider; pipewire-jack routes it through the PipeWire
+# sound server H3XD already runs, where jack2 would compete with it for the sound card.
+depends=('7zip'
+         'atril'
+         'bash'
+         'chromium'
+         'code'
+         'galculator'
+         'gnome-keyring'
+         'mousepad'
+         'mpv'
+         'noto-fonts'
+         'noto-fonts-emoji'
+         'pipewire-jack'
+         'ristretto'
+         'thunar-archive-plugin'
+         'unzip'
+         'xarchiver'
+         'xfce4-screenshooter'
+         'xfce4-taskmanager'
+         'zip')
+backup=('etc/mpv/mpv.conf'
+        'etc/xdg/mimeapps.list')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('mimeapps.list'
+        'mpv.conf'
+        'default-apps'
+        'h3xdos-default-apps.desktop')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 mimeapps.list "$pkgdir/etc/xdg/mimeapps.list"
+  install -Dm644 mpv.conf "$pkgdir/etc/mpv/mpv.conf"
+  install -Dm755 default-apps "$pkgdir/usr/lib/h3xd/default-apps"
+  install -Dm644 h3xdos-default-apps.desktop "$pkgdir/etc/xdg/autostart/h3xdos-default-apps.desktop"
+}

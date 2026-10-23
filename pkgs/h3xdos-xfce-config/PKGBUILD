@@ -2,7 +2,7 @@
 
 pkgname=h3xdos-xfce-config
 pkgver=2026.10.23
-pkgrel=4
+pkgrel=5
 pkgdesc='H3XD desktop defaults: Xfce panel, theme and shortcuts, terminal, prompt, LightDM, keyboard'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
@@ -45,6 +45,7 @@ source=('xsettings.xml'
         'xfce4-panel.xml'
         'xfce4-terminal.xml'
         'xfce4-keyboard-shortcuts.xml'
+        'xfce4-desktop.xml'
         'h3xd-panel-status'
         'starship.toml'
         'zshrc'
@@ -54,12 +55,13 @@ source=('xsettings.xml'
         'lightdm-gtk-greeter-50-h3xdos.conf'
         '00-keyboard.conf'
         'networkmanager-wifi-backend.conf')
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
             'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
   install -Dm644 -t "$pkgdir/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml" \
     xsettings.xml xfwm4.xml xfce4-panel.xml xfce4-terminal.xml xfce4-keyboard-shortcuts.xml
+  install -Dm644 -t "$pkgdir/etc/xdg/xfce4/xfconf/xfce-perchannel-xml" xfce4-desktop.xml
   install -Dm644 starship.toml "$pkgdir/etc/skel/.config/starship.toml"
   # grml-zsh-config owns /etc/skel/.zshrc and sources zshrc.local after its own prompt.
   install -Dm644 zshrc "$pkgdir/etc/zsh/zshrc.local"

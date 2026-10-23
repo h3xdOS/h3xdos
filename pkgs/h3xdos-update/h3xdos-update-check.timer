@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for h3xdOS updates after login and then daily
+Description=Check for H3XD updates after login and then daily
 
 [Timer]
 OnStartupSec=10min

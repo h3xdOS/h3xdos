@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for h3xdOS updates
+Description=Check for H3XD updates
 
 [Service]
 Type=oneshot

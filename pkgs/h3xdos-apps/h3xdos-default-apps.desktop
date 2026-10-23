@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=H3XD default applications
+Exec=/usr/lib/h3xd/default-apps
+OnlyShowIn=XFCE;
+NoDisplay=true

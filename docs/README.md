@@ -7,7 +7,10 @@ instalátor, nainstalovaný systém má desktop Xfce 4.20 ve vlastním vzhledu H
 - Instalátor Calamares: GRUB pro UEFI i BIOS, ext4 nebo btrfs, volitelně LUKS,
   stránka Možnosti pro root účet, SSH server a root login přes SSH.
 - Aktualizace: `pacman` z Arch repozitářů a z repozitáře `[h3xdos]` na GitHub Pages,
-  nástroj **System Update** (`h3xdos-update`) a denní upozornění.
+  nástroj **System Update** (`h3xdos-update`) a denní upozornění. Návod pro uživatele
+  i správce: [AKTUALIZACE.md](AKTUALIZACE.md).
+- Ovladače podle detekované grafiky (Intel, AMD, NVIDIA) a virtuálního stroje, zram swap
+  a TRIM pro slabší PC, výchozí aplikace (Chromium, Code - OSS, Mousepad a další).
 - `apt` a `kali-apt` spouští skutečný apt v kontejnerech Ubuntu 24.04 a Kali Rolling
   (distrobox), Arch systém zůstává čistý.
 
@@ -54,7 +57,9 @@ Boot test projde, když sériová konzole v BIOS i UEFI ukáže `h3xd login:`.
 | `pkgs/h3xdos-xfce-config` | panel, klávesové zkratky, terminál, prompt (zsh + starship), LightDM |
 | `pkgs/h3xdos-containers` | `apt`, `kali-apt`, `h3xdos-box`, manifest distroboxu |
 | `pkgs/h3xdos-calamares-config` | konfigurace instalátoru, branding, live relace jen s instalátorem |
-| `pkgs/h3xdos-update` | `h3xdos-update`, položka System Update, uživatelský časovač |
+| `pkgs/h3xdos-update` | `h3xdos-update`, položka System Update, uživatelský časovač, `/etc/h3xdos/update.conf` |
+| `pkgs/h3xdos-hardware` | `h3xdos-drivers` (detekce GPU a VM), zram swap, nastavení swapu, TRIM |
+| `pkgs/h3xdos-apps` | metabalíček výchozích aplikací, výchozí programy pro typy souborů |
 | `scripts/` | `bootstrap.ps1`, `provision.sh`, `repo-build.sh`, `repo-publish.sh`, `build.sh`, `boot-test.sh` |
 
 ## Aktualizace přes GitHub
@@ -64,7 +69,8 @@ Boot test projde, když sériová konzole v BIOS i UEFI ukáže `h3xd login:`.
 `https://h3xdos.github.io/h3xdos-repo/$arch`. Nainstalovaný systém má tento repozitář
 v `/etc/pacman.conf`, takže `sudo pacman -Syu` nebo **System Update** stáhnou nové verze
 brandingu, nastavení a nástrojů H3XD. Balíčky zatím nejsou podepsané
-(`SigLevel = Optional TrustedOnly`), přenos chrání HTTPS.
+(`SigLevel = Optional TrustedOnly`), přenos chrání HTTPS. Postup vydání aktualizace
+a co která aktualizace přinesla popisuje [AKTUALIZACE.md](AKTUALIZACE.md).
 
 ## Řešení problémů
 
@@ -97,5 +103,7 @@ Každý bod se během vývoje skutečně stal.
 ## Otevřené body
 
 - Podepisování balíčků `[h3xdos]` a ISO.
+- Ovladače a výchozí aplikace už během instalace, když je síť. Zatím je doinstaluje první
+  System Update; do ISO se aplikace nevejdou kvůli limitu 2 GiB pro soubor na GitHub Release.
 - Vlastní aplikace Nastavení podle návrhu (obrazovka 2d); zatím slouží Nastavení Xfce v tématu `h3xd-dark`.
 - Mezery mezi okny a dlaždicové skládání z návrhu xfwm4 neumí.

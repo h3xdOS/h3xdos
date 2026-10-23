@@ -2,7 +2,7 @@
 
 pkgname=h3xd-theme
 pkgver=1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
@@ -51,8 +51,33 @@ _hex() {
     "$cx" "$((cy + 5))" "$((cx - 5))" "$((cy + 3))" "$((cx - 5))" "$((cy - 2))" "$color"
 }
 
+# Workspace buttons from sheet 2a: pointy-top hexagons of 26x23 px, the ring 1.5 px wide.
+# GTK 3 CSS has no clip-path, so the panel draws them as background images.
+_ws_w=26
+_ws_h=23
+_ws_outer='13,0 26,5.75 26,17.25 13,23 0,17.25 0,5.75'
+_ws_inner='13,1.5 24.5,6.5 24.5,16.5 13,21.5 1.5,16.5 1.5,6.5'
+
+# Writes a 1x and a 2x PNG for HiDPI panels.
+_render_ws() {
+  local name=$1 body=$2
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">%s</svg>' \
+    "$_ws_w" "$_ws_h" "$_ws_w" "$_ws_h" "$body" > "assets/$name.svg"
+  rsvg-convert -o "assets/$name.png" "assets/$name.svg"
+  rsvg-convert -z 2 -o "assets/$name@2.png" "assets/$name.svg"
+  rm "assets/$name.svg"
+}
+
+_ws_ring() {
+  printf '<path d="M%s Z M%s Z" fill-rule="evenodd" fill="%s"/>' "$_ws_outer" "$_ws_inner" "$1"
+}
+
 build() {
-  mkdir -p xfwm4
+  mkdir -p xfwm4 assets
+  _render_ws ws-active "<polygon points=\"$_ws_outer\" fill=\"#1793d1\"/>"
+  _render_ws ws-idle "$(_ws_ring '#3a4253')"
+  _render_ws ws-hover "$(_ws_ring '#4b5366')"
+
   local state border title idle hover press close close_hover close_press menu
   for state in active inactive; do
     if [[ $state == active ]]; then
@@ -103,6 +128,7 @@ package() {
   local theme="$pkgdir/usr/share/themes/h3xd-dark"
   install -Dm644 index.theme "$theme/index.theme"
   install -Dm644 gtk.css "$theme/gtk-3.0/gtk.css"
+  install -Dm644 -t "$theme/gtk-3.0/assets" assets/*.png
   install -Dm644 notify.css "$theme/xfce-notify-4.0/gtk.css"
   install -Dm644 themerc "$theme/xfwm4/themerc"
   install -Dm644 -t "$theme/xfwm4" xfwm4/*.png

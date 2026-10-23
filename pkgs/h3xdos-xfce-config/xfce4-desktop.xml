@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Installed as a system default under /etc/xdg, so accounts created before this file
+     get it too. xfdesktop colors icon labels with @theme_selected_fg_color at application
+     priority, which in h3xd-dark is the dark on-accent color; a theme cannot override it,
+     a custom label color can. #e6edf3 as RGBA doubles. -->
+<channel name="xfce4-desktop" version="1.0">
+  <property name="desktop-icons" type="empty">
+    <property name="use-custom-label-text-color" type="bool" value="true"/>
+    <property name="label-text-color" type="array">
+      <value type="double" value="0.901961"/>
+      <value type="double" value="0.929412"/>
+      <value type="double" value="0.952941"/>
+      <value type="double" value="1.000000"/>
+    </property>
+  </property>
+</channel>
