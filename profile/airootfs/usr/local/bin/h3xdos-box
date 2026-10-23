@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Opens a shell in an h3xdOS distrobox, creating it from the shipped manifest on first use.
+set -euo pipefail
+
+readonly manifest=/usr/share/h3xdos/distrobox.ini
+
+box=${1:?usage: h3xdos-box ubuntu|kali}
+
+if ! podman container exists "$box"; then
+    distrobox assemble create --file "$manifest" --name "$box"
+fi
+exec distrobox enter "$box"

@@ -1,0 +1,37 @@
+# Units enabled at build time. NTFS cannot hold the symlinks systemctl enable
+# would create, so scripts/build.sh creates them in the staged profile instead.
+#
+# <unit> <link>
+# A link ending in "/" is a .wants or .requires directory under
+# /etc/systemd/system and receives a symlink named <unit>. Any other link is an
+# alias name for <unit>. The symlink points to /etc/systemd/system/<unit> when
+# the profile ships that unit file, otherwise to /usr/lib/systemd/system/<unit>.
+
+cloud-config.service                   cloud-init.target.wants/
+cloud-final.service                    cloud-init.target.wants/
+cloud-init-local.service               cloud-init.target.wants/
+cloud-init-main.service                cloud-init.target.wants/
+cloud-init-network.service             cloud-init.target.wants/
+lightdm.service                        display-manager.service
+ModemManager.service                   dbus-org.freedesktop.ModemManager1.service
+NetworkManager-dispatcher.service      dbus-org.freedesktop.nm-dispatcher.service
+systemd-resolved.service               dbus-org.freedesktop.resolve1.service
+systemd-timesyncd.service              dbus-org.freedesktop.timesync1.service
+ModemManager.service                   multi-user.target.wants/
+choose-mirror.service                  multi-user.target.wants/
+hv_kvp_daemon.service                  multi-user.target.wants/
+hv_vss_daemon.service                  multi-user.target.wants/
+iwd.service                            multi-user.target.wants/
+livecd-talk.service                    multi-user.target.wants/
+NetworkManager.service                 multi-user.target.wants/
+pacman-init.service                    multi-user.target.wants/
+sshd.service                           multi-user.target.wants/
+systemd-resolved.service               multi-user.target.wants/
+vboxservice.service                    multi-user.target.wants/
+vmtoolsd.service                       multi-user.target.wants/
+vmware-vmblock-fuse.service            multi-user.target.wants/
+NetworkManager-wait-online.service     network-online.target.wants/
+pcscd.socket                           sockets.target.wants/
+livecd-alsa-unmuter.service            sound.target.wants/
+systemd-time-wait-sync.service         sysinit.target.wants/
+systemd-timesyncd.service              sysinit.target.wants/

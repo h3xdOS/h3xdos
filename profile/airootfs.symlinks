@@ -1,0 +1,8 @@
+# Symlinks in airootfs that are not systemd units (those live in services.enable).
+# NTFS cannot hold them, so scripts/build.sh creates them in the staged profile.
+#
+# <path relative to airootfs> <target>
+
+etc/localtime                                              /usr/share/zoneinfo/Europe/Prague
+etc/resolv.conf                                            /run/systemd/resolve/stub-resolv.conf
+etc/systemd/system-generators/systemd-gpt-auto-generator   /dev/null

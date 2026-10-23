@@ -1,0 +1,2 @@
+# Live session only: h3x has no password here. The installer removes this file.
+h3x ALL=(ALL:ALL) NOPASSWD: ALL

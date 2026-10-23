@@ -1,0 +1,14 @@
+h3xdOS live system, built on Arch Linux.
+
+Wired networks with DHCP connect on their own. For Wi-Fi use nmtui
+(or iwctl), for mobile broadband (WWAN) modems use mmcli.
+
+Ubuntu and Kali with apt run in containers: h3xdos-box ubuntu or
+h3xdos-box kali (the first start downloads the image).
+
+LightDM logs user h3x into Xfce automatically. Text consoles on
+Ctrl+Alt+F2 to F6 accept root without a password.
+
+The console keyboard is US. For Czech run: loadkeys cz-us-qwertz
+Pause then locks US on or off, AltGr switches for a single key.
+

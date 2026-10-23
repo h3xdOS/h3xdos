@@ -1,0 +1,9 @@
+NAME="h3xdOS"
+PRETTY_NAME="h3xdOS"
+ID=h3xdos
+ID_LIKE=arch
+BUILD_ID=rolling
+HOME_URL="https://github.com/h3xdOS/h3xdos"
+BUG_REPORT_URL="https://github.com/h3xdOS/h3xdos/issues"
+ANSI_COLOR="38;2;50;129;234"
+LOGO=h3xdos

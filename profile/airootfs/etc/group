@@ -1,0 +1,4 @@
+root:x:0:root
+wheel:x:998:h3x
+autologin:x:970:h3x
+h3x:x:1000:

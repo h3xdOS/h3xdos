@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Sets the h3xdOS wallpaper once per user. xfdesktop keys its backdrop by monitor
+# name, which differs between machines, so it cannot ship as a static xfconf file.
+set -euo pipefail
+
+readonly wallpaper=/usr/share/backgrounds/h3xdos/hexgrid.png
+readonly image_style_zoomed=5
+readonly marker=${XDG_CONFIG_HOME:-$HOME/.config}/h3xdos/wallpaper-set
+
+[[ -e $marker ]] && exit 0
+
+xrandr --listactivemonitors | awk 'NR > 1 { print $NF }' | while read -r monitor; do
+    base=/backdrop/screen0/monitor$monitor/workspace0
+    xfconf-query -c xfce4-desktop -p "$base/last-image" -n -t string -s "$wallpaper"
+    xfconf-query -c xfce4-desktop -p "$base/image-style" -n -t int -s "$image_style_zoomed"
+done
+
+mkdir -p -- "${marker%/*}"
+touch -- "$marker"

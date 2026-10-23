@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kali terminal
+Comment=Kali Rolling container with apt (distrobox)
+Exec=xfce4-terminal --title=Kali -x h3xdos-box kali
+Icon=distributor-logo-kali-linux
+Terminal=false
+Categories=System;

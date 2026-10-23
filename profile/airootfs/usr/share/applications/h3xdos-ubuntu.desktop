@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ubuntu terminal
+Comment=Ubuntu 24.04 container with apt (distrobox)
+Exec=xfce4-terminal --title=Ubuntu -x h3xdos-box ubuntu
+Icon=distributor-logo-ubuntu
+Terminal=false
+Categories=System;
