@@ -1,0 +1,33 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-greeter
+pkgver=1.0.2
+pkgrel=1
+pkgdesc='H3XD login and lock screen for LightDM, with light-locker for locking'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# lightdm-gtk-greeter stays as the fallback the greeter hands over to when it cannot start.
+depends=('gtk3'
+         'h3xdos-branding'
+         'librsvg'
+         'light-locker'
+         'lightdm'
+         'lightdm-gtk-greeter'
+         'python'
+         'python-cairo'
+         'python-gobject'
+         'ttf-ibm-plex'
+         'ttf-jetbrains-mono')
+install=h3xd-greeter.install
+# Sources are files tracked next to this PKGBUILD in git.
+source=('greeter'
+        'h3xd-greeter.desktop'
+        'lightdm-60-h3xd-greeter.conf')
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm755 greeter "$pkgdir/usr/lib/h3xd/greeter"
+  install -Dm644 h3xd-greeter.desktop "$pkgdir/usr/share/xgreeters/h3xd-greeter.desktop"
+  install -Dm644 lightdm-60-h3xd-greeter.conf "$pkgdir/etc/lightdm/lightdm.conf.d/60-h3xd-greeter.conf"
+}

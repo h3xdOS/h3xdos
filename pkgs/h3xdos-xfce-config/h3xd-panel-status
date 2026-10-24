@@ -5,6 +5,11 @@ set -euo pipefail
 
 readonly muted='#8b95a5'
 readonly value='#e6edf3'
+readonly bar_off='#3a4253'
+# Lower one eighth, three eighths, five eighths and full block.
+readonly bars=(▂ ▄ ▆ █)
+# Hover tone for the clickable indicators, the tile colour of sheet 2f.
+readonly hover_css='button { margin: 14px 0; padding: 0 8px; border-radius: 3px; } button:hover { background-color: #1a202b; }'
 
 # Pango markup must not see raw &, < or > from window titles or network names.
 escape() {
@@ -15,64 +20,108 @@ escape() {
     printf '%s' "$text"
 }
 
+# field <label> <value> <click command> <tooltip> [extra markup after the value]
+# Without a <tool> tag genmon shows its own command line as the tooltip.
 field() {
-    printf '<txt><span foreground="%s">%s</span> <span foreground="%s">%s</span></txt>' \
-        "$muted" "$1" "$value" "$(escape "$2")"
-    [[ -n ${3:-} ]] && printf '<txtclick>%s</txtclick>' "$3"
-    echo
+    printf '<txt><span foreground="%s">%s</span> <span foreground="%s">%s</span>%s</txt>' \
+        "$muted" "$1" "$value" "$(escape "$2")" "${5:-}"
+    printf '<tool>%s</tool><txtclick>%s</txtclick><css>%s</css>\n' \
+        "$(escape "$4")" "$3" "$hover_css"
 }
 
 title() {
     local window name
     window=$(xprop -root _NET_ACTIVE_WINDOW | awk '{ print $NF }')
     if [[ $window == 0x0 ]]; then
-        echo '<txt></txt>'
+        echo '<txt></txt><tool></tool>'
         return
     fi
     name=$(xprop -id "$window" _NET_WM_NAME | sed -n 's/^[^"]*"\(.*\)"$/\1/p')
-    printf '<txt><span foreground="%s">%s</span></txt>\n' "$muted" "$(escape "$name")"
+    printf '<txt><span foreground="%s">%s</span></txt><tool>%s</tool>\n' \
+        "$muted" "$(escape "$name")" "$(escape "$name")"
+}
+
+clock() {
+    printf '<txt><span weight="600" foreground="%s">%s</span>  <span foreground="%s">%s</span></txt>' \
+        "$value" "$(date +%H:%M)" "$muted" "$(date '+%a %-d %b')"
+    printf '<tool>%s</tool><txtclick>h3xd-calendar</txtclick><css>%s</css>\n' \
+        "$(date '+%A %x')" "$hover_css"
+}
+
+# Four bars, lit up to the signal strength in percent.
+signal_bars() {
+    local strength=$1 level n out=''
+    level=$(( strength <= 0 ? 0 : (strength / 25 + 1 > 4 ? 4 : strength / 25 + 1) ))
+    for n in 0 1 2 3; do
+        if (( n < level )); then
+            out+="<span foreground=\"$value\">${bars[n]}</span>"
+        else
+            out+="<span foreground=\"$bar_off\">${bars[n]}</span>"
+        fi
+    done
+    printf ' <span font_family="JetBrains Mono">%s</span>' "$out"
+}
+
+wifi_signal() {
+    local active signal _ssid
+    # Terse output escapes ":" in the network name; SSID is the last field on purpose.
+    while IFS=: read -r active signal _ssid; do
+        if [[ $active == yes ]]; then
+            printf '%s' "$signal"
+            return
+        fi
+    done < <(nmcli -t -f ACTIVE,SIGNAL,SSID device wifi list --rescan no)
+    printf '0'
 }
 
 network() {
-    local type state connection
+    local type state connection wired='' signal
+    # Wi-Fi comes first: its signal is what changes on a laptop.
     while IFS=: read -r type state connection; do
-        if [[ $state == connected ]]; then
-            case $type in
-                wifi) field wifi "$connection" nm-connection-editor ;;
-                *) field net "$connection" nm-connection-editor ;;
-            esac
+        [[ $state == connected ]] || continue
+        if [[ $type == wifi ]]; then
+            signal=$(wifi_signal)
+            field wifi "$connection" h3xd-network "Wi-Fi $connection, signal $signal %" \
+                "$(signal_bars "$signal")"
             return
         fi
+        [[ -n $wired ]] || wired=$connection
     done < <(nmcli -t -f TYPE,STATE,CONNECTION device)
-    field net offline nm-connection-editor
+    if [[ -n $wired ]]; then
+        field net "$wired" h3xd-network "Connected: $wired"
+    else
+        field net offline h3xd-network "Not connected; click to choose a Wi-Fi network"
+    fi
 }
 
 volume() {
     local reading level
     reading=$(wpctl get-volume @DEFAULT_AUDIO_SINK@)
     if [[ $reading == *MUTED* ]]; then
-        field vol muted pavucontrol
+        field vol muted pavucontrol "Sound muted; click for the mixer"
         return
     fi
     level=$(awk '{ printf "%d", $2 * 100 + 0.5 }' <<<"$reading")
-    field vol "$level" pavucontrol
+    field vol "$level" pavucontrol "Volume $level %; click for the mixer"
 }
 
 battery() {
     local supply
     for supply in /sys/class/power_supply/BAT*; do
         if [[ -r $supply/capacity ]]; then
-            field bat "$(<"$supply/capacity")%" xfce4-power-manager-settings
+            field bat "$(<"$supply/capacity")%" xfce4-power-manager-settings \
+                "Battery $(<"$supply/capacity") %, $(<"$supply/status")"
             return
         fi
     done
-    echo '<txt></txt>'
+    echo '<txt></txt><tool></tool>'
 }
 
 case ${1:-} in
     title) title ;;
+    clock) clock ;;
     network) network ;;
     volume) volume ;;
     battery) battery ;;
-    *) echo "usage: h3xd-panel-status title|network|volume|battery" >&2; exit 2 ;;
+    *) echo "usage: h3xd-panel-status title|clock|network|volume|battery" >&2; exit 2 ;;
 esac

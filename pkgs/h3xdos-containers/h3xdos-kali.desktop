@@ -1,7 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Kali terminal
-Comment=Kali Rolling container with apt (distrobox)
+Name=Kali Linux
+Comment=Kali Rolling shell with apt, in a distrobox container
+Keywords=apt;kali-apt;container;distrobox;
 Exec=xfce4-terminal --title=Kali -x h3xdos-box kali
 Icon=distributor-logo-kali-linux
 Terminal=false

@@ -1,0 +1,6 @@
+# A copy with Hidden=true under ~/.config/autostart switches off the system entry of the
+# same name: light-locker replaces xfce4-screensaver, h3xd-network replaces nm-applet.
+[Desktop Entry]
+Type=Application
+Name=Disabled by H3XD
+Hidden=true

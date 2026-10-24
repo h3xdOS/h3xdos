@@ -1,0 +1,38 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-shell
+pkgver=1.0.2
+pkgrel=1
+pkgdesc='H3XD desktop tools: launcher, window docking, Wi-Fi and calendar popups'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+depends=('exo'
+         'gtk3'
+         'libnm'
+         'libwnck3'
+         'networkmanager'
+         'nm-connection-editor'
+         'python'
+         'python-cairo'
+         'python-gobject'
+         'ttf-ibm-plex'
+         'ttf-jetbrains-mono'
+         'xfconf')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('h3xd_ui.py'
+        'h3xd-launcher'
+        'h3xd-dock'
+        'h3xd-network'
+        'h3xd-calendar'
+        'h3xd-panel-background'
+        'h3xd-launcher.desktop')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm644 h3xd_ui.py "$pkgdir/usr/lib/h3xd/python/h3xd_ui.py"
+  install -Dm755 -t "$pkgdir/usr/bin" h3xd-launcher h3xd-dock h3xd-network h3xd-calendar \
+    h3xd-panel-background
+  # Starts the launcher hidden at login, so that the first Super opens it without delay.
+  install -Dm644 h3xd-launcher.desktop "$pkgdir/etc/xdg/autostart/h3xd-launcher.desktop"
+}

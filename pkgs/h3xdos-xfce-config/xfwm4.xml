@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Sheet 2f: window menu (split-hex) on the left, minimize, maximize, close on the right. -->
+<!-- Sheet 2f: window menu (split-hex) on the left, minimize, maximize, close on the right.
+     Five workspaces for Super+1 to Super+5. Dragging a window to an edge docks it to that
+     half or quarter. The compositor gives the floating panel its transparent gaps; its
+     dock shadow would darken them, and the flat design has no shadows. -->
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
     <property name="theme" type="string" value="h3xd-dark"/>
     <property name="title_font" type="string" value="JetBrains Mono Medium 9"/>
     <property name="title_alignment" type="string" value="left"/>
     <property name="button_layout" type="string" value="O|HMC"/>
-    <property name="workspace_count" type="int" value="4"/>
+    <property name="workspace_count" type="int" value="5"/>
     <property name="workspace_names" type="array">
       <value type="string" value="1"/>
       <value type="string" value="2"/>
       <value type="string" value="3"/>
       <value type="string" value="4"/>
+      <value type="string" value="5"/>
     </property>
+    <property name="tile_on_move" type="bool" value="true"/>
+    <property name="use_compositing" type="bool" value="true"/>
+    <property name="show_dock_shadow" type="bool" value="false"/>
   </property>
 </channel>

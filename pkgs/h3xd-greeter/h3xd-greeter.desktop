@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=H3XD greeter
+Comment=Login and lock screen of H3XD
+Exec=/usr/lib/h3xd/greeter

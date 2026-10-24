@@ -2,7 +2,7 @@
 
 pkgname=h3xdos-hardware
 pkgver=2026.10.23
-pkgrel=1
+pkgrel=2
 pkgdesc='H3XD hardware support: driver detection, zram swap and SSD TRIM'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'

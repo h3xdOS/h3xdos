@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- xflock4 runs this command: light-locker switches to the H3XD greeter, so the lock
+     screen and the login screen are the same design 2c screen. -->
+<channel name="xfce4-session" version="1.0">
+  <property name="general" type="empty">
+    <property name="LockCommand" type="string" value="light-locker-command -l"/>
+  </property>
+</channel>

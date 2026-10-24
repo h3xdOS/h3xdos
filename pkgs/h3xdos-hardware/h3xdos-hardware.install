@@ -1,5 +1,20 @@
+# The releng base turns systemd-networkd on through the systemd presets, next to
+# NetworkManager; both then run DHCP on the same interfaces and a laptop ends up with two
+# addresses per link. H3XD networking is NetworkManager alone. Masking takes effect at the
+# next boot, so an update over Wi-Fi keeps its connection.
+_networkd_off() {
+  if systemctl is-enabled --quiet NetworkManager.service; then
+    systemctl mask systemd-networkd.service systemd-networkd-wait-online.service
+  fi
+}
+
 post_install() {
   # Weekly TRIM keeps inexpensive SSDs fast; fstrim skips disks without discard support.
   # Only on first install, so an administrator who disables it keeps it disabled.
   systemctl enable fstrim.timer
+  _networkd_off
+}
+
+post_upgrade() {
+  _networkd_off
 }

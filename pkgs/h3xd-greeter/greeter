@@ -1,0 +1,493 @@
+#!/usr/bin/env python3
+"""H3XD login and lock screen (design 2c), a LightDM greeter.
+
+LightDM runs it for the login screen and, through light-locker, for the lock screen.
+The password goes to LightDM, which checks it with PAM; the greeter never sees a session.
+If the greeter cannot set itself up, it hands over to lightdm-gtk-greeter, so that a
+broken update cannot lock anybody out."""
+
+import os
+import sys
+
+FALLBACK = "lightdm-gtk-greeter"
+
+
+def fall_back(error):
+    print(f"h3xd-greeter: {error!r}; starting {FALLBACK}", file=sys.stderr)
+    os.execvp(FALLBACK, [FALLBACK])
+
+
+try:
+    import gi
+
+    gi.require_version("Gdk", "3.0")
+    gi.require_version("GdkPixbuf", "2.0")
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("LightDM", "1")
+    gi.require_version("PangoCairo", "1.0")
+    gi.require_version("Rsvg", "2.0")
+    from gi.repository import Gdk, GdkPixbuf, GLib, Gtk, LightDM, PangoCairo, Rsvg
+except (ImportError, ValueError) as error:
+    fall_back(error)
+
+WALLPAPER = "/usr/share/backgrounds/h3xd/h3xd-dark.png"
+LOGO = "/usr/share/h3xd/h3xd-compact.svg"
+LOGO_HEIGHT = 112
+# Design 2c is drawn on 1440x900: a 560 px column with 72 px above and below, 80 px left.
+COLUMN_WIDTH = 560
+PADDING_TOP_SHARE = 72 / 900
+PADDING_LEFT = 80
+ENTRY_WIDTH = 340
+AVATAR_WIDTH = 34
+AVATAR_HEIGHT = 40
+AVATAR_FILL = (0x2b / 255, 0x32 / 255, 0x40 / 255)
+AVATAR_INK = (0xe6 / 255, 0xed / 255, 0xf3 / 255)
+BACKGROUND = "#0f1218"
+# Sessions a person should not pick at the login screen.
+HIDDEN_SESSIONS = {"h3xdos-installer"}
+
+CSS = f"""
+window.h3xd-greeter {{
+    background-color: {BACKGROUND};
+}}
+.h3xd-greeter label {{
+    font-family: "IBM Plex Sans";
+    color: #e6edf3;
+}}
+.h3xd-greeter label.h3xd-greeter-clock {{
+    font-weight: 300;
+    font-size: 120px;
+    letter-spacing: -4px;
+}}
+.h3xd-greeter label.h3xd-greeter-date {{
+    font-size: 18px;
+    color: #c6cbd5;
+}}
+.h3xd-greeter label.h3xd-greeter-user {{
+    font-size: 16px;
+    font-weight: 500;
+}}
+.h3xd-greeter entry {{
+    background-image: none;
+    background-color: #181c25;
+    border: 2px solid #1793d1;
+    border-radius: 4px;
+    box-shadow: none;
+    color: #e6edf3;
+    caret-color: #1793d1;
+    font-family: "JetBrains Mono";
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    min-height: 42px;
+    padding: 0 14px;
+}}
+.h3xd-greeter label.h3xd-greeter-hint {{
+    font-size: 13px;
+    color: #8b95a5;
+}}
+.h3xd-greeter label.h3xd-greeter-error {{
+    font-size: 13px;
+    color: #f07075;
+}}
+.h3xd-greeter button {{
+    background-image: none;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 2px 0;
+}}
+.h3xd-greeter button label {{
+    font-size: 13px;
+    color: #c6cbd5;
+}}
+.h3xd-greeter button:hover label {{
+    color: #e6edf3;
+}}
+menu, .menu {{
+    background-color: #1a202b;
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+}}
+menu menuitem {{
+    padding: 6px 12px;
+    border-radius: 3px;
+    color: #e6edf3;
+    font-family: "IBM Plex Sans";
+}}
+menu menuitem:hover {{
+    background-color: #12304a;
+}}
+"""
+
+
+def long_date(now):
+    """Weekday, day and month in the order and grammar of the time locale."""
+    time_locale = os.environ.get("LC_TIME") or os.environ.get("LC_ALL") or \
+        os.environ.get("LANG", "")
+    if time_locale.startswith(("cs", "sk", "de", "pl")):
+        return now.format("%A %-d. %B")
+    return now.format("%A, %-d %B")
+
+
+def session_label(session):
+    """"Xfce session" as in the design; Xfce names its own session "Xfce Session"."""
+    if session is None:
+        return "Session"
+    name = session.get_name()
+    if name.lower().endswith(" session"):
+        name = name[: -len(" session")]
+    return f"{name} session"
+
+
+class Avatar(Gtk.DrawingArea):
+    """The user's initial on the hexagon of the design."""
+
+    def __init__(self):
+        super().__init__()
+        self.initial = ""
+        self.set_size_request(AVATAR_WIDTH, AVATAR_HEIGHT)
+        self.connect("draw", self.on_draw)
+
+    def set_user(self, name):
+        self.initial = (name[:1] or "?").upper()
+        self.queue_draw()
+
+    def on_draw(self, widget, cr):
+        width = widget.get_allocated_width()
+        height = widget.get_allocated_height()
+        points = ((0.5, 0), (1, 0.25), (1, 0.75), (0.5, 1), (0, 0.75), (0, 0.25))
+        cr.move_to(points[0][0] * width, points[0][1] * height)
+        for x, y in points[1:]:
+            cr.line_to(x * width, y * height)
+        cr.close_path()
+        cr.set_source_rgb(*AVATAR_FILL)
+        cr.fill()
+        layout = widget.create_pango_layout("")
+        layout.set_markup(f'<span font_family="JetBrains Mono" weight="600" size="10500">'
+                          f'{GLib.markup_escape_text(self.initial)}</span>', -1)
+        text_width, text_height = layout.get_pixel_size()
+        cr.set_source_rgb(*AVATAR_INK)
+        cr.move_to((width - text_width) / 2, (height - text_height) / 2)
+        PangoCairo.show_layout(cr, layout)
+        return False
+
+
+class Logo(Gtk.DrawingArea):
+    """The compact H3XD lockup, drawn by librsvg: gdk-pixbuf 2.44 loads SVG through the
+    glycin sandbox, which a greeter running as the lightdm user should not depend on."""
+
+    def __init__(self):
+        super().__init__()
+        self.handle = None
+        try:
+            self.handle = Rsvg.Handle.new_from_file(LOGO)
+        except GLib.Error as error:
+            print(f"h3xd-greeter: {error.message}", file=sys.stderr)
+            return
+        _ok, width, height = self.handle.get_intrinsic_size_in_pixels()
+        self.width = round(width * LOGO_HEIGHT / height)
+        self.set_size_request(self.width, LOGO_HEIGHT)
+        self.set_halign(Gtk.Align.START)
+        self.connect("draw", self.on_draw)
+
+    def on_draw(self, _widget, cr):
+        viewport = Rsvg.Rectangle()
+        viewport.x, viewport.y, viewport.width, viewport.height = 0, 0, self.width, LOGO_HEIGHT
+        self.handle.render_document(cr, viewport)
+        return False
+
+
+class Background(Gtk.Window):
+    """The wallpaper of one monitor, scaled to cover it."""
+
+    def __init__(self, monitor):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        geometry = monitor.get_geometry()
+        self.set_decorated(False)
+        self.get_style_context().add_class("h3xd-greeter")
+        self.move(geometry.x, geometry.y)
+        self.set_default_size(geometry.width, geometry.height)
+        self.pixbuf = None
+        try:
+            source = GdkPixbuf.Pixbuf.new_from_file(WALLPAPER)
+            scale = max(geometry.width / source.get_width(),
+                        geometry.height / source.get_height())
+            self.pixbuf = source.scale_simple(round(source.get_width() * scale),
+                                              round(source.get_height() * scale),
+                                              GdkPixbuf.InterpType.BILINEAR)
+        except GLib.Error as error:
+            # Without the wallpaper the plain background colour of the design remains.
+            print(f"h3xd-greeter: {error.message}", file=sys.stderr)
+        self.area = Gtk.DrawingArea()
+        self.area.connect("draw", self.on_draw)
+        self.overlay = Gtk.Overlay()
+        self.overlay.add(self.area)
+        self.add(self.overlay)
+
+    def on_draw(self, widget, cr):
+        if self.pixbuf is not None:
+            width = widget.get_allocated_width()
+            height = widget.get_allocated_height()
+            Gdk.cairo_set_source_pixbuf(cr, self.pixbuf,
+                                        (width - self.pixbuf.get_width()) / 2,
+                                        (height - self.pixbuf.get_height()) / 2)
+            cr.paint()
+        return False
+
+
+class Greeter:
+    def __init__(self):
+        self.greeter = LightDM.Greeter()
+        self.users = list(LightDM.UserList.get_instance().get_users())
+        self.sessions = [session for session in LightDM.get_sessions()
+                         if session.get_key() not in HIDDEN_SESSIONS]
+        self.user = None
+        self.session = None
+        self.prompted = False
+        self.pending = None
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(CSS.encode())
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        display = Gdk.Display.get_default()
+        primary = display.get_primary_monitor() or display.get_monitor(0)
+        self.windows = []
+        for index in range(display.get_n_monitors()):
+            monitor = display.get_monitor(index)
+            window = Background(monitor)
+            if monitor == primary:
+                window.overlay.add_overlay(self.build_column(monitor))
+                self.main_window = window
+            self.windows.append(window)
+
+        self.greeter.connect("show-prompt", self.on_prompt)
+        self.greeter.connect("show-message", self.on_message)
+        self.greeter.connect("authentication-complete", self.on_complete)
+        GLib.timeout_add_seconds(1, self.tick)
+
+    def build_column(self, monitor):
+        height = monitor.get_geometry().height
+        padding = round(height * PADDING_TOP_SHARE)
+        column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        column.set_size_request(COLUMN_WIDTH - PADDING_LEFT, -1)
+        column.set_halign(Gtk.Align.START)
+        column.set_margin_start(PADDING_LEFT)
+        column.set_margin_top(padding)
+        column.set_margin_bottom(padding)
+
+        logo = Logo()
+        if logo.handle is not None:
+            column.pack_start(logo, False, False, 0)
+
+        middle = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=40)
+        middle.set_valign(Gtk.Align.CENTER)
+        clock_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.clock = Gtk.Label(xalign=0)
+        self.clock.get_style_context().add_class("h3xd-greeter-clock")
+        self.date = Gtk.Label(xalign=0)
+        self.date.get_style_context().add_class("h3xd-greeter-date")
+        clock_box.pack_start(self.clock, False, False, 0)
+        clock_box.pack_start(self.date, False, False, 0)
+        middle.pack_start(clock_box, False, False, 0)
+
+        login = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        user_row = Gtk.Box(spacing=12)
+        self.avatar = Avatar()
+        self.name = Gtk.Label(xalign=0)
+        self.name.get_style_context().add_class("h3xd-greeter-user")
+        user_row.pack_start(self.avatar, False, False, 0)
+        user_row.pack_start(self.name, False, False, 0)
+        login.pack_start(user_row, False, False, 0)
+
+        self.entry = Gtk.Entry()
+        self.entry.set_visibility(False)
+        self.entry.set_invisible_char("*")
+        self.entry.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        self.entry.set_size_request(ENTRY_WIDTH, -1)
+        self.entry.set_halign(Gtk.Align.START)
+        self.entry.connect("activate", self.on_enter)
+        login.pack_start(self.entry, False, False, 0)
+        self.hint = Gtk.Label(xalign=0)
+        self.hint.get_style_context().add_class("h3xd-greeter-hint")
+        login.pack_start(self.hint, False, False, 0)
+        middle.pack_start(login, False, False, 0)
+        column.pack_start(middle, True, True, 0)
+
+        actions = Gtk.Box(spacing=20)
+        self.session_button = Gtk.Button()
+        self.session_button.connect("clicked", self.on_sessions)
+        self.switch_button = Gtk.Button(label="Switch user")
+        self.switch_button.connect("clicked", self.on_users)
+        power = Gtk.Button(label="Power")
+        power.connect("clicked", self.on_power)
+        for button in (self.session_button, self.switch_button, power):
+            button.set_relief(Gtk.ReliefStyle.NONE)
+            button.set_can_focus(False)
+            actions.pack_start(button, False, False, 0)
+        column.pack_end(actions, False, False, 0)
+        return column
+
+    def connect(self):
+        self.greeter.connect_to_daemon_sync()
+
+    def start(self):
+        self.tick()
+        hinted = self.greeter.get_select_user_hint()
+        user = next((user for user in self.users if user.get_name() == hinted), None)
+        if user is None and self.users:
+            user = next((user for user in self.users if user.get_logged_in()), self.users[0])
+        self.select_user(user)
+
+        cursor = Gdk.Cursor.new_from_name(Gdk.Display.get_default(), "default")
+        for window in self.windows:
+            window.show_all()
+            window.get_window().set_cursor(cursor)
+        Gdk.get_default_root_window().set_cursor(cursor)
+        self.main_window.present()
+        self.entry.grab_focus()
+
+    def tick(self):
+        now = GLib.DateTime.new_now_local()
+        self.clock.set_text(now.format("%H:%M"))
+        self.date.set_text(long_date(now))
+        return GLib.SOURCE_CONTINUE
+
+    def select_user(self, user):
+        """Starts authentication for user, or for a name typed in when user is None."""
+        self.user = user
+        name = user.get_name() if user is not None else ""
+        self.name.set_text(user.get_display_name() if user is not None else "Other user")
+        self.avatar.set_user(name)
+        session_key = (user.get_session() if user is not None else None) \
+            or self.greeter.get_default_session_hint()
+        self.set_session(session_key)
+        self.show_hint()
+        self.entry.set_text("")
+        if self.greeter.get_in_authentication():
+            self.greeter.cancel_authentication()
+        self.prompted = False
+        self.pending = None
+        self.greeter.authenticate(name or None)
+
+    def set_session(self, key):
+        known = {session.get_key(): session for session in self.sessions}
+        session = known.get(key) or known.get("xfce") or (self.sessions[0] if self.sessions
+                                                          else None)
+        self.session = session
+        self.session_button.set_label(session_label(session))
+
+    def show_hint(self, error=None):
+        style = self.hint.get_style_context()
+        if error:
+            self.hint.set_text(error)
+            style.remove_class("h3xd-greeter-hint")
+            style.add_class("h3xd-greeter-error")
+            return
+        style.remove_class("h3xd-greeter-error")
+        style.add_class("h3xd-greeter-hint")
+        locking = self.greeter.get_lock_hint()
+        self.hint.set_text("Press Enter to unlock" if locking else "Press Enter to log in")
+
+    def on_prompt(self, _greeter, _text, prompt_type):
+        self.prompted = True
+        asking_name = prompt_type == LightDM.PromptType.QUESTION
+        if self.pending is not None and not asking_name:
+            password, self.pending = self.pending, None
+            self.respond(password)
+            return
+        # PAM asks for the user name first when "Other user" was chosen.
+        self.entry.set_visibility(asking_name)
+        self.entry.set_text("")
+        self.entry.set_sensitive(True)
+        self.entry.grab_focus()
+        if asking_name:
+            self.hint.set_text("Enter the user name and press Enter")
+        elif self.user is None:
+            self.show_hint()
+
+    def on_message(self, _greeter, text, message_type):
+        if message_type == LightDM.MessageType.ERROR:
+            self.show_hint(text)
+
+    def on_enter(self, entry):
+        text = entry.get_text()
+        entry.set_sensitive(False)
+        if entry.get_visibility():
+            # The typed user name: show it like a chosen user.
+            self.name.set_text(text)
+            self.avatar.set_user(text)
+        if self.prompted:
+            self.respond(text)
+        else:
+            self.pending = text
+
+    def respond(self, password):
+        self.prompted = False
+        self.greeter.respond(password)
+
+    def on_complete(self, greeter):
+        if greeter.get_is_authenticated():
+            key = self.session.get_key() if self.session else None
+            try:
+                greeter.start_session_sync(key)
+                return
+            except GLib.Error as error:
+                self.entry.set_sensitive(True)
+                self.show_hint(f"The session did not start: {error.message}")
+                return
+        self.entry.set_sensitive(True)
+        self.entry.set_text("")
+        self.entry.grab_focus()
+        self.show_hint("Wrong password, try again")
+        self.prompted = False
+        greeter.authenticate(self.user.get_name() if self.user else None)
+
+    def popup(self, button, items):
+        menu = Gtk.Menu()
+        for label, callback in items:
+            item = Gtk.MenuItem(label=label)
+            item.connect("activate", lambda _item, callback=callback: callback())
+            menu.append(item)
+        menu.show_all()
+        menu.popup_at_widget(button, Gdk.Gravity.NORTH_WEST, Gdk.Gravity.SOUTH_WEST, None)
+
+    def on_sessions(self, button):
+        self.popup(button, [(session.get_name(),
+                             lambda session=session: self.set_session(session.get_key()))
+                            for session in self.sessions])
+
+    def on_users(self, button):
+        items = [(user.get_display_name(), lambda user=user: self.select_user(user))
+                 for user in self.users]
+        items.append(("Other user", lambda: self.select_user(None)))
+        self.popup(button, items)
+
+    def on_power(self, button):
+        items = []
+        if LightDM.get_can_suspend():
+            items.append(("Suspend", LightDM.suspend))
+        if LightDM.get_can_restart():
+            items.append(("Restart", LightDM.restart))
+        if LightDM.get_can_shutdown():
+            items.append(("Shut down", LightDM.shutdown))
+        self.popup(button, items)
+
+
+def main():
+    # Up to the daemon connection nothing has been said to LightDM, so the stock greeter
+    # can still take over; after it, falling back would confuse the protocol.
+    try:
+        greeter = Greeter()
+        greeter.connect()
+    except Exception as error:  # noqa: BLE001 - any set-up failure must leave a usable login
+        fall_back(error)
+    greeter.start()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

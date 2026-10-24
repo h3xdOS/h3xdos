@@ -1,0 +1,201 @@
+#!/usr/bin/env python3
+"""H3XD calendar popup, opened from the clock of the panel: one month with room between
+the days, today on the hexagon of the design, the full date and week below. Names of days
+and months follow the time format of the session. A second click on the clock closes it."""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/h3xd/python")
+import h3xd_ui  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gdk, GLib, Gtk, PangoCairo  # noqa: E402
+
+APP_ID = "org.h3xd.Calendar"
+WIDTH = 320
+CELL_WIDTH = 38
+CELL_HEIGHT = 34
+WEEKS = 6
+# The hexagon under today: regular and pointy-top like the mark, 26x30 px.
+HEX_WIDTH = 26
+HEX_HEIGHT = 30
+ACCENT = (0x17 / 255, 0x93 / 255, 0xd1 / 255)
+ON_ACCENT = (0x0f / 255, 0x13 / 255, 0x20 / 255)
+MIDDLE_DOT = chr(0x00b7)
+
+CSS = """
+.h3xd-calendar { padding: 16px; }
+.h3xd-calendar-month { font-size: 15px; font-weight: 600; }
+.h3xd-calendar-weekday { font-family: "JetBrains Mono"; font-size: 11px; color: #8b95a5; }
+.h3xd-calendar-day { font-size: 13px; color: #c6cbd5; }
+.h3xd-calendar-day.weekend { color: #8b95a5; }
+.h3xd-calendar-day.outside { color: #3a4253; }
+.h3xd-calendar-footer { padding-top: 12px; margin-top: 8px; }
+"""
+
+
+def first_of_month(year, month):
+    return GLib.DateTime.new_local(year, month, 1, 0, 0, 0)
+
+
+class TodayCell(Gtk.DrawingArea):
+    def __init__(self, day):
+        super().__init__()
+        self.day = str(day)
+        self.set_size_request(CELL_WIDTH, CELL_HEIGHT)
+        self.connect("draw", self.on_draw)
+
+    def on_draw(self, widget, cr):
+        width = widget.get_allocated_width()
+        height = widget.get_allocated_height()
+        left = (width - HEX_WIDTH) / 2
+        top = (height - HEX_HEIGHT) / 2
+        points = ((0.5, 0), (1, 0.25), (1, 0.75), (0.5, 1), (0, 0.75), (0, 0.25))
+        cr.move_to(left + points[0][0] * HEX_WIDTH, top + points[0][1] * HEX_HEIGHT)
+        for x, y in points[1:]:
+            cr.line_to(left + x * HEX_WIDTH, top + y * HEX_HEIGHT)
+        cr.close_path()
+        cr.set_source_rgb(*ACCENT)
+        cr.fill()
+
+        layout = widget.create_pango_layout("")
+        layout.set_markup(f'<span weight="600">{self.day}</span>', -1)
+        text_width, text_height = layout.get_pixel_size()
+        cr.set_source_rgb(*ON_ACCENT)
+        cr.move_to((width - text_width) / 2, (height - text_height) / 2)
+        PangoCairo.show_layout(cr, layout)
+        return False
+
+
+class Calendar(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+        self.window = None
+        self.today = None
+        self.shown = None
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        h3xd_ui.apply_css(CSS)
+
+    def do_activate(self):
+        if self.window is not None:
+            self.window.close()
+            return
+        self.today = GLib.DateTime.new_now_local()
+        self.shown = first_of_month(self.today.get_year(), self.today.get_month())
+        self.build_window()
+
+    def build_window(self):
+        window = h3xd_ui.make_popup(self, "Calendar")
+        h3xd_ui.close_on_escape(window)
+        h3xd_ui.close_on_focus_out(window)
+        window.connect("destroy", lambda _window: setattr(self, "window", None))
+        window.add_events(Gdk.EventMask.SCROLL_MASK)
+        window.connect("scroll-event", self.on_scroll)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        card.set_size_request(WIDTH, -1)
+        for name in ("h3xd-card", "h3xd-calendar"):
+            card.get_style_context().add_class(name)
+
+        header = Gtk.Box(spacing=4)
+        self.month = Gtk.Label(xalign=0)
+        self.month.get_style_context().add_class("h3xd-calendar-month")
+        header.pack_start(self.month, True, True, 0)
+        # Single left and right pointing angle quotation marks.
+        for text, step in ((chr(0x2039), -1), (chr(0x203a), 1)):
+            button = Gtk.Button(label=text)
+            button.get_style_context().add_class("h3xd-flat")
+            button.connect("clicked", lambda _button, step=step: self.move(step))
+            header.pack_start(button, False, False, 0)
+        card.pack_start(header, False, False, 0)
+
+        self.grid = Gtk.Grid()
+        self.grid.set_column_homogeneous(True)
+        card.pack_start(self.grid, False, False, 0)
+
+        footer = Gtk.Box(spacing=8)
+        footer.get_style_context().add_class("h3xd-calendar-footer")
+        footer.get_style_context().add_class("h3xd-rule")
+        self.date = Gtk.Label(xalign=0)
+        self.date.get_style_context().add_class("h3xd-muted")
+        self.today_button = Gtk.Button(label="Today")
+        self.today_button.get_style_context().add_class("h3xd-flat")
+        self.today_button.connect("clicked", lambda _button: self.go_today())
+        self.today_button.set_no_show_all(True)
+        footer.pack_start(self.date, True, True, 0)
+        footer.pack_end(self.today_button, False, False, 0)
+        card.pack_start(footer, False, False, 0)
+
+        window.add(card)
+        self.render()
+        h3xd_ui.place_under_panel(window, WIDTH)
+        window.show_all()
+        window.present()
+        self.window = window
+
+    def on_scroll(self, _window, event):
+        if event.direction == Gdk.ScrollDirection.UP:
+            self.move(-1)
+        elif event.direction == Gdk.ScrollDirection.DOWN:
+            self.move(1)
+        return True
+
+    def move(self, months):
+        self.shown = self.shown.add_months(months)
+        self.render()
+
+    def go_today(self):
+        self.shown = first_of_month(self.today.get_year(), self.today.get_month())
+        self.render()
+
+    def render(self):
+        # %OB is the stand-alone month name, nominative in languages that inflect it.
+        self.month.set_text(self.shown.format("%OB %Y").capitalize())
+        for child in self.grid.get_children():
+            self.grid.remove(child)
+
+        # Weeks start on Monday (ISO 8601). 2024-01-01 was a Monday.
+        monday = GLib.DateTime.new_local(2024, 1, 1, 0, 0, 0)
+        for column in range(7):
+            label = Gtk.Label(label=monday.add_days(column).format("%a")[:2])
+            label.get_style_context().add_class("h3xd-calendar-weekday")
+            label.set_size_request(CELL_WIDTH, 24)
+            self.grid.attach(label, column, 0, 1, 1)
+
+        lead = self.shown.get_day_of_week() - 1
+        start = self.shown.add_days(-lead)
+        for index in range(WEEKS * 7):
+            day = start.add_days(index)
+            row, column = divmod(index, 7)
+            if self.same_day(day, self.today):
+                cell = TodayCell(day.get_day_of_month())
+            else:
+                cell = Gtk.Label(label=str(day.get_day_of_month()))
+                cell.set_size_request(CELL_WIDTH, CELL_HEIGHT)
+                style = cell.get_style_context()
+                style.add_class("h3xd-calendar-day")
+                if day.get_month() != self.shown.get_month():
+                    style.add_class("outside")
+                elif column >= 5:
+                    style.add_class("weekend")
+            self.grid.attach(cell, column, row + 1, 1, 1)
+        self.grid.show_all()
+
+        self.date.set_text(f"{self.today.format('%A %x')}  {MIDDLE_DOT}  "
+                           f"week {self.today.get_week_of_year()}")
+        on_today = (self.shown.get_year() == self.today.get_year()
+                    and self.shown.get_month() == self.today.get_month())
+        self.today_button.set_visible(not on_today)
+
+    @staticmethod
+    def same_day(a, b):
+        return (a.get_year(), a.get_month(), a.get_day_of_month()) == \
+            (b.get_year(), b.get_month(), b.get_day_of_month())
+
+
+if __name__ == "__main__":
+    sys.exit(Calendar().run(sys.argv))

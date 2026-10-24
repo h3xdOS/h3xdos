@@ -1,13 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Xfce 4.20 defaults from libxfce4ui, except that Super opens the search launcher
-     of design 2b and Alt+F1 the Whisker menu: the panel has no applicationsmenu plugin.
-     A custom set replaces the default set entirely, so every default command is repeated here. -->
+<!-- Xfce 4.20 defaults from libxfce4ui with the H3XD keys:
+       Super, Super+F, Super+Enter   launcher (design 2b)
+       Super+T                       terminal
+       Super+1..5, Super+Shift+1..5  switch to workspace, move the window there
+       Super+arrows, Super+D         dock the window, tile the workspace (h3xd-dock)
+       Super+Q, Super+L, Super+E     close the window, lock the screen, files
+     A custom set replaces the default set entirely, so every default is repeated here.
+     Workspaces go through h3xd-dock and not xfwm4: while Super alone opens the launcher,
+     xfsettingsd holds the Super key and xfwm4 never sees Super+1; xfwm4 keeps its defaults.
+     xfsettingsd matches the symbol a key produces, so the number keys appear once for the
+     us and once for the cz layout of 00-keyboard.conf, plain and with Shift. -->
 <channel name="xfce4-keyboard-shortcuts" version="1.0">
   <property name="commands" type="empty">
     <property name="custom" type="empty">
       <property name="override" type="bool" value="true"/>
-      <property name="Super_L" type="string" value="xfce4-appfinder --collapsed"/>
+      <property name="Super_L" type="string" value="h3xd-launcher"/>
+      <property name="&lt;Super&gt;f" type="string" value="h3xd-launcher"/>
+      <property name="&lt;Super&gt;Return" type="string" value="h3xd-launcher"/>
+      <property name="&lt;Super&gt;t" type="string" value="exo-open --launch TerminalEmulator"/>
+      <property name="&lt;Super&gt;Left" type="string" value="h3xd-dock left"/>
+      <property name="&lt;Super&gt;Right" type="string" value="h3xd-dock right"/>
+      <property name="&lt;Super&gt;Up" type="string" value="h3xd-dock up"/>
+      <property name="&lt;Super&gt;Down" type="string" value="h3xd-dock down"/>
+      <property name="&lt;Super&gt;d" type="string" value="h3xd-dock tile"/>
+      <property name="&lt;Super&gt;q" type="string" value="h3xd-dock close"/>
+      <property name="&lt;Super&gt;1" type="string" value="h3xd-dock workspace 1"/>
+      <property name="&lt;Super&gt;plus" type="string" value="h3xd-dock workspace 1"/>
+      <property name="&lt;Super&gt;2" type="string" value="h3xd-dock workspace 2"/>
+      <property name="&lt;Super&gt;ecaron" type="string" value="h3xd-dock workspace 2"/>
+      <property name="&lt;Super&gt;3" type="string" value="h3xd-dock workspace 3"/>
+      <property name="&lt;Super&gt;scaron" type="string" value="h3xd-dock workspace 3"/>
+      <property name="&lt;Super&gt;4" type="string" value="h3xd-dock workspace 4"/>
+      <property name="&lt;Super&gt;ccaron" type="string" value="h3xd-dock workspace 4"/>
+      <property name="&lt;Super&gt;5" type="string" value="h3xd-dock workspace 5"/>
+      <property name="&lt;Super&gt;rcaron" type="string" value="h3xd-dock workspace 5"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;exclam" type="string" value="h3xd-dock send 1"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;1" type="string" value="h3xd-dock send 1"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;at" type="string" value="h3xd-dock send 2"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;2" type="string" value="h3xd-dock send 2"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;numbersign" type="string" value="h3xd-dock send 3"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;3" type="string" value="h3xd-dock send 3"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;dollar" type="string" value="h3xd-dock send 4"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;4" type="string" value="h3xd-dock send 4"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;percent" type="string" value="h3xd-dock send 5"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;5" type="string" value="h3xd-dock send 5"/>
+      <property name="&lt;Super&gt;l" type="string" value="xflock4"/>
+      <property name="&lt;Super&gt;e" type="string" value="thunar"/>
       <property name="&lt;Alt&gt;F1" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Alt&gt;F2" type="string" value="xfce4-appfinder --collapsed">
         <property name="startup-notify" type="bool" value="true"/>
@@ -27,7 +66,6 @@
       <property name="Print" type="string" value="xfce4-screenshooter"/>
       <property name="&lt;Alt&gt;Print" type="string" value="xfce4-screenshooter -w"/>
       <property name="&lt;Shift&gt;Print" type="string" value="xfce4-screenshooter -r"/>
-      <property name="&lt;Super&gt;e" type="string" value="thunar"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;f" type="string" value="thunar"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="xkill"/>
       <property name="&lt;Primary&gt;&lt;Shift&gt;Escape" type="string" value="xfce4-taskmanager"/>

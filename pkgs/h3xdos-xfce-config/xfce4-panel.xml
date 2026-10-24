@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Design 2a: mark menu, workspaces, active window title, centered clock,
-     text indicators, tray, user. Plugin ids are referenced by the h3xd-dark CSS. -->
+<!-- Design 2a: mark menu, workspaces, active window title, centred clock, text indicators,
+     tray and user, floating on the wallpaper: the panel is 60 px high with a transparent
+     background (the compositor of xfwm4 blends it), so items keep 10 px from the top and
+     windows start 10 px below. Plugin ids are referenced by the h3xd-dark CSS. -->
 <channel name="xfce4-panel" version="1.0">
   <property name="configver" type="int" value="2"/>
   <property name="panels" type="array">
@@ -11,8 +13,15 @@
       <property name="position" type="string" value="p=6;x=0;y=0"/>
       <property name="length" type="uint" value="100"/>
       <property name="position-locked" type="bool" value="true"/>
-      <property name="icon-size" type="uint" value="16"/>
-      <property name="size" type="uint" value="40"/>
+      <property name="icon-size" type="uint" value="24"/>
+      <property name="size" type="uint" value="60"/>
+      <property name="background-style" type="uint" value="1"/>
+      <property name="background-rgba" type="array">
+        <value type="double" value="0.000000"/>
+        <value type="double" value="0.000000"/>
+        <value type="double" value="0.000000"/>
+        <value type="double" value="0.000000"/>
+      </property>
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
         <value type="int" value="2"/>
@@ -47,10 +56,11 @@
       <property name="expand" type="bool" value="true"/>
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-5" type="string" value="clock">
-      <property name="mode" type="uint" value="2"/>
-      <property name="digital-layout" type="uint" value="3"/>
-      <property name="digital-time-format" type="string" value="&lt;b&gt;%H:%M&lt;/b&gt;  &lt;span foreground=&quot;#8b95a5&quot;&gt;%a %d %b&lt;/span&gt;"/>
+    <property name="plugin-5" type="string" value="genmon">
+      <property name="command" type="string" value="/usr/lib/h3xd/panel-status clock"/>
+      <property name="update-period" type="int" value="2000"/>
+      <property name="use-label" type="bool" value="false"/>
+      <property name="enable-single-row" type="bool" value="true"/>
     </property>
     <property name="plugin-6" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
@@ -75,7 +85,7 @@
       <property name="enable-single-row" type="bool" value="true"/>
     </property>
     <property name="plugin-10" type="string" value="systray">
-      <property name="square-icons" type="bool" value="true"/>
+      <property name="square-icons" type="bool" value="false"/>
     </property>
     <property name="plugin-11" type="string" value="actions"/>
   </property>

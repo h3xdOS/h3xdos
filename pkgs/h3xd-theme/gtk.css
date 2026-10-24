@@ -255,7 +255,9 @@ frame > border, .frame {
     border-color: #2b3240;
 }
 
-/* Panel, design 2a: 40 px bar on surface, mono text, quiet buttons. */
+/* Panel, design 2a, floating on the wallpaper: 60 px high with a transparent background,
+   set in its configuration because xfce4-panel paints its own background over the theme.
+   Buttons keep 10 px off the top and bottom, so that hover marks stay compact. */
 .xfce4-panel {
     font-family: "JetBrains Mono";
     font-weight: 500;
@@ -266,6 +268,8 @@ frame > border, .frame {
     color: #c6cbd5;
     border-radius: 3px;
     padding: 2px 6px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .xfce4-panel button:hover {
@@ -277,18 +281,38 @@ frame > border, .frame {
     color: #0f1320;
 }
 
+/* The user chip of design 2a: 24 px high, 8 px from the right end of the bar. The panel
+   keeps the button at the full bar height, so the label carries the chip. */
 #actions-11 button {
+    margin-right: 18px;
+    padding: 0;
+}
+
+#actions-11 button, #actions-11 button:hover, #actions-11 button:checked {
+    background-color: transparent;
+}
+
+#actions-11 button label {
     background-color: #1a202b;
+    border-radius: 3px;
+    color: #c6cbd5;
+    margin: 8px 0;
+    padding: 0 10px;
+}
+
+#actions-11 button:hover label, #actions-11 button:checked label {
+    background-color: #2b3240;
+    color: #e6edf3;
 }
 
 /* Workspace switcher, design 2a. xfce4-panel pins the padding and minimum size of its
-   toggle buttons at application priority, so the label carries the 26x23 hexagon size. */
+   toggle buttons at application priority, so the label carries the 22x26 hexagon size. */
 #pager-2 button {
     background-color: transparent;
     background-image: -gtk-scaled(url("assets/ws-idle.png"), url("assets/ws-idle@2.png"));
     background-position: center;
     background-repeat: no-repeat;
-    background-size: 26px 23px;
+    background-size: 22px 26px;
     margin: 0 3px;
     color: #c6cbd5;
     font-size: 11px;
@@ -306,9 +330,13 @@ frame > border, .frame {
     font-weight: 600;
 }
 
+/* 2 px + 18 px + the panel's 1 px padding on each side make the 22 px of the hexagon.
+   Centring a digit in an even width rounds it a pixel to the left; the extra pixel on the
+   left puts it back on the axis of the hexagon. */
 #pager-2 button label {
-    min-width: 24px;
-    min-height: 21px;
+    min-width: 18px;
+    min-height: 24px;
+    padding-left: 2px;
 }
 
 /* LightDM greeter, design 2c. */

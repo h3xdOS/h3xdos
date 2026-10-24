@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+"""Draws the floating bar of the H3XD panel (design 2a) as the panel's background image:
+a 40 px bar with rounded corners, 10 px from the screen edges, at the width of the screen.
+The gaps stay transparent, so the wallpaper shows around the bar; without a compositor
+they take the wallpaper colour instead of turning black. xfce4-panel cannot inset its own
+background, but external plugins continue the panel's background image in their own
+windows, so an image looks right everywhere. Run at login and when the screen width
+changes; it only touches the panel settings when they differ."""
+
+import math
+import os
+import subprocess
+import sys
+
+import cairo
+import gi
+
+gi.require_version("Gdk", "3.0")
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, GLib, Gtk  # noqa: E402,F401 - Gtk initialises the display
+
+GAP = 10
+BAR_HEIGHT = 40
+RADIUS = 4
+# The plain top edge of the H3XD wallpaper and the surface colour of sheet 2f.
+GAP_COLOR = (0x10 / 255, 0x14 / 255, 0x1b / 255)
+BAR_COLOR = (0x18 / 255, 0x1c / 255, 0x25 / 255)
+PANEL = "/panels/panel-1"
+IMAGE_STYLE = "2"
+
+
+def rounded_rectangle(cr, x, y, width, height, radius):
+    cr.new_sub_path()
+    cr.arc(x + width - radius, y + radius, radius, -0.5 * math.pi, 0)
+    cr.arc(x + width - radius, y + height - radius, radius, 0, 0.5 * math.pi)
+    cr.arc(x + radius, y + height - radius, radius, 0.5 * math.pi, math.pi)
+    cr.arc(x + radius, y + radius, radius, math.pi, 1.5 * math.pi)
+    cr.close_path()
+
+
+def draw(path, width, height, scale, transparent):
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width * scale, height * scale)
+    cr = cairo.Context(surface)
+    cr.scale(scale, scale)
+    if not transparent:
+        cr.set_source_rgb(*GAP_COLOR)
+        cr.paint()
+    rounded_rectangle(cr, GAP, GAP, width - 2 * GAP, BAR_HEIGHT, RADIUS)
+    cr.set_source_rgb(*BAR_COLOR)
+    cr.fill()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    surface.write_to_png(path)
+
+
+def xfconf_get(prop):
+    result = subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-p", prop],
+                            capture_output=True, text=True, check=False)
+    # A missing property is the normal state before the first run.
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def xfconf_set(prop, kind, value):
+    if xfconf_get(prop) != value:
+        subprocess.run(["xfconf-query", "-c", "xfce4-panel", "-p", prop, "-n", "-t", kind,
+                        "-s", value], check=True)
+
+
+def main():
+    display = Gdk.Display.get_default()
+    if display is None:
+        print("h3xd-panel-background: no display", file=sys.stderr)
+        return 1
+    monitor = display.get_primary_monitor() or display.get_monitor(0)
+    width = monitor.get_geometry().width
+    scale = monitor.get_scale_factor()
+    transparent = Gdk.Screen.get_default().is_composited()
+    height = 2 * GAP + BAR_HEIGHT
+    kind = "clear" if transparent else "solid"
+    path = os.path.join(GLib.get_user_cache_dir(), "h3xd",
+                        f"panel-{width}x{height}@{scale}-{kind}.png")
+    if not os.path.exists(path):
+        draw(path, width, height, scale, transparent)
+    xfconf_set(f"{PANEL}/background-image", "string", path)
+    xfconf_set(f"{PANEL}/background-style", "uint", IMAGE_STYLE)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=H3XD launcher
+Exec=h3xd-launcher --background
+OnlyShowIn=XFCE;
+NoDisplay=true

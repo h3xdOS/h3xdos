@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=H3XD settings update
+Exec=/usr/lib/h3xd/session-update
+OnlyShowIn=XFCE;
+NoDisplay=true

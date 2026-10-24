@@ -1,0 +1,583 @@
+#!/usr/bin/env python3
+"""H3XD network popup: the Wi-Fi networks in range with their signal, one click to connect,
+the password asked in a dialog in the middle of the screen, the connection activated
+right away. Opened from the network indicator of the panel; a second click closes it."""
+
+import sys
+import uuid
+
+sys.path.insert(0, "/usr/lib/h3xd/python")
+import h3xd_ui  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("NM", "1.0")
+from gi.repository import Gio, GLib, Gtk, NM, Pango  # noqa: E402
+
+APP_ID = "org.h3xd.Network"
+WIDTH = 360
+DIALOG_WIDTH = 400
+MAX_ROWS = 8
+ACTIVATION_TIMEOUT_S = 45
+
+# libnm 802.11 flag values; PyGObject cannot name the NM80211* types, which start with a digit.
+AP_FLAGS_PRIVACY = 0x1
+KEY_MGMT_PSK = 0x100
+KEY_MGMT_802_1X = 0x200
+KEY_MGMT_SAE = 0x400
+KEY_MGMT_OWE = 0x800
+
+# Lower one eighth, three eighths, five eighths and full block.
+BARS = "".join(chr(code) for code in (0x2582, 0x2584, 0x2586, 0x2588))
+BAR_ON = "#e6edf3"
+BAR_OFF = "#3a4253"
+
+CSS = """
+.h3xd-network { padding: 8px; }
+.h3xd-network-header { padding: 8px 12px 10px 12px; }
+.h3xd-network-title { font-weight: 600; font-size: 14px; }
+.h3xd-network-status { padding: 4px 12px 8px 12px; }
+.h3xd-network-footer { padding: 8px 4px 0 4px; }
+.h3xd-network .h3xd-row { padding: 8px 12px; }
+.h3xd-network list { background-color: transparent; }
+.h3xd-network list row { padding: 0; border-radius: 4px; background-color: transparent; }
+.h3xd-network list row:selected, .h3xd-network list row:hover { background-color: #12304a; }
+.h3xd-connected { color: #5cb6e4; }
+.h3xd-dialog { padding: 22px 24px; }
+.h3xd-dialog-title { font-weight: 600; font-size: 16px; }
+.h3xd-card switch { background-image: none; background-color: #3a4253; border: none;
+                    border-radius: 11px; }
+.h3xd-card switch:checked { background-color: #1793d1; }
+.h3xd-card switch slider { background-image: none; background-color: #e6edf3; border: none;
+                           border-radius: 9px; margin: 3px; min-width: 16px; min-height: 16px; }
+.h3xd-card checkbutton { color: #c6cbd5; }
+"""
+
+
+def ssid_text(ssid_bytes):
+    if ssid_bytes is None:
+        return None
+    return NM.utils_ssid_to_utf8(ssid_bytes.get_data())
+
+
+def bars_markup(strength):
+    level = 0 if strength <= 0 else min(4, 1 + strength // 25)
+    on = BARS[:level]
+    off = BARS[level:]
+    return (f'<span font_family="JetBrains Mono"><span foreground="{BAR_ON}">{on}</span>'
+            f'<span foreground="{BAR_OFF}">{off}</span></span>')
+
+
+def key_mgmt(ap):
+    """The key management NetworkManager needs for this access point, None when open,
+    "enterprise" when it needs 802.1X credentials this popup does not handle."""
+    flags = int(ap.get_wpa_flags()) | int(ap.get_rsn_flags())
+    if flags & KEY_MGMT_PSK:
+        return "wpa-psk"
+    if flags & KEY_MGMT_SAE:
+        return "sae"
+    if flags & KEY_MGMT_802_1X:
+        return "enterprise"
+    if flags & KEY_MGMT_OWE:
+        return "owe"
+    if int(ap.get_flags()) & AP_FLAGS_PRIVACY:
+        return "wep"
+    return None
+
+
+def new_connection(ssid, security, password, hidden=False):
+    connection = NM.SimpleConnection.new()
+    setting = NM.SettingConnection.new()
+    setting.set_property(NM.SETTING_CONNECTION_ID, ssid)
+    setting.set_property(NM.SETTING_CONNECTION_UUID, str(uuid.uuid4()))
+    setting.set_property(NM.SETTING_CONNECTION_TYPE, NM.SETTING_WIRELESS_SETTING_NAME)
+    connection.add_setting(setting)
+
+    wireless = NM.SettingWireless.new()
+    wireless.set_property(NM.SETTING_WIRELESS_SSID, GLib.Bytes.new(ssid.encode()))
+    wireless.set_property(NM.SETTING_WIRELESS_MODE, NM.SETTING_WIRELESS_MODE_INFRA)
+    wireless.set_property(NM.SETTING_WIRELESS_HIDDEN, hidden)
+    connection.add_setting(wireless)
+
+    if security is not None:
+        secret = NM.SettingWirelessSecurity.new()
+        if security == "wep":
+            secret.set_property(NM.SETTING_WIRELESS_SECURITY_KEY_MGMT, "none")
+            secret.set_property(NM.SETTING_WIRELESS_SECURITY_WEP_KEY_TYPE, NM.WepKeyType.KEY)
+            secret.set_wep_key(0, password)
+        else:
+            secret.set_property(NM.SETTING_WIRELESS_SECURITY_KEY_MGMT, security)
+            if security != "owe":
+                secret.set_property(NM.SETTING_WIRELESS_SECURITY_PSK, password)
+        connection.add_setting(secret)
+
+    for config in (NM.SettingIP4Config.new(), NM.SettingIP6Config.new()):
+        config.set_property(NM.SETTING_IP_CONFIG_METHOD, "auto")
+        connection.add_setting(config)
+    return connection
+
+
+class Network(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+        self.window = None
+        self.dialog = None
+        self.client = None
+        self.device = None
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        h3xd_ui.apply_css(CSS)
+        self.client = NM.Client.new(None)
+        for signal in ("device-added", "device-removed", "notify::wireless-enabled",
+                       "notify::active-connections"):
+            self.client.connect(signal, lambda *_args: self.refresh())
+
+    def do_activate(self):
+        if self.window is not None:
+            # The panel indicator toggles the popup.
+            self.window.close()
+            return
+        self.device = next((device for device in self.client.get_devices()
+                            if isinstance(device, NM.DeviceWifi)), None)
+        if self.device is not None:
+            self.device.connect("access-point-added", lambda *_args: self.refresh())
+            self.device.connect("access-point-removed", lambda *_args: self.refresh())
+            self.device.connect("notify::active-access-point", lambda *_args: self.refresh())
+            self.scan()
+        self.build_window()
+        self.refresh()
+
+    def scan(self):
+        def done(device, result):
+            try:
+                device.request_scan_finish(result)
+            except GLib.Error as error:
+                # NetworkManager refuses scans in quick succession; the list it has is fine.
+                print(f"h3xd-network: scan: {error.message}", file=sys.stderr)
+            self.set_status("")
+
+        self.device.request_scan_async(None, done)
+        self.set_status("Scanning")
+
+    def build_window(self):
+        window = h3xd_ui.make_popup(self, "Network")
+        h3xd_ui.close_on_escape(window)
+        window.connect("focus-out-event", self.on_focus_out)
+        window.connect("destroy", self.on_destroy)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.set_size_request(WIDTH, -1)
+        for name in ("h3xd-card", "h3xd-network"):
+            card.get_style_context().add_class(name)
+
+        header = Gtk.Box(spacing=12)
+        header.get_style_context().add_class("h3xd-network-header")
+        title = Gtk.Label(label="Wi-Fi", xalign=0)
+        title.get_style_context().add_class("h3xd-network-title")
+        self.switch = Gtk.Switch()
+        self.switch.set_valign(Gtk.Align.CENTER)
+        self.switch.connect("notify::active", self.on_switch)
+        header.pack_start(title, True, True, 0)
+        header.pack_end(self.switch, False, False, 0)
+        card.pack_start(header, False, False, 0)
+
+        self.status = Gtk.Label(xalign=0)
+        self.status.get_style_context().add_class("h3xd-network-status")
+        self.status.get_style_context().add_class("h3xd-muted")
+        self.status.set_no_show_all(True)
+        card.pack_start(self.status, False, False, 0)
+
+        self.list = Gtk.ListBox()
+        self.list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.list.connect("row-activated", lambda _list, row: row.activate_network())
+        card.pack_start(self.list, False, False, 0)
+
+        footer = Gtk.Box(spacing=4)
+        footer.get_style_context().add_class("h3xd-network-footer")
+        footer.get_style_context().add_class("h3xd-rule")
+        hidden = Gtk.Button(label="Hidden network")
+        hidden.connect("clicked", lambda _button: self.ask_hidden())
+        settings = Gtk.Button(label="Settings")
+        settings.connect("clicked", lambda _button: self.open_settings())
+        for button in (hidden, settings):
+            button.get_style_context().add_class("h3xd-flat")
+        footer.pack_start(hidden, False, False, 0)
+        footer.pack_end(settings, False, False, 0)
+        card.pack_start(footer, False, False, 0)
+
+        window.add(card)
+        h3xd_ui.place_under_panel(window, WIDTH)
+        window.show_all()
+        window.present()
+        self.window = window
+
+    def on_destroy(self, _window):
+        self.window = None
+
+    def on_focus_out(self, *_args):
+        # The password dialog takes the focus; the list closes, the dialog stays.
+        if self.window is not None and self.dialog is None:
+            self.window.close()
+        return False
+
+    def set_status(self, text):
+        if self.window is None:
+            return
+        self.status.set_text(text)
+        self.status.set_visible(bool(text))
+
+    def on_switch(self, switch, _param):
+        if switch.get_active() != self.client.wireless_get_enabled():
+            self.client.dbus_set_property(NM.DBUS_PATH, NM.DBUS_INTERFACE, "WirelessEnabled",
+                                          GLib.Variant("b", switch.get_active()), -1, None,
+                                          None, None)
+
+    def saved_connection(self, ssid):
+        for connection in self.client.get_connections():
+            wireless = connection.get_setting_wireless()
+            if wireless is not None and ssid_text(wireless.get_ssid()) == ssid:
+                return connection
+        return None
+
+    def networks(self):
+        """One entry per network name, the strongest access point first."""
+        best = {}
+        for ap in self.device.get_access_points():
+            ssid = ssid_text(ap.get_ssid())
+            if not ssid:
+                continue
+            if ssid not in best or ap.get_strength() > best[ssid].get_strength():
+                best[ssid] = ap
+        active = self.device.get_active_access_point()
+        active_ssid = ssid_text(active.get_ssid()) if active is not None else None
+        return sorted(best.items(), key=lambda item: (item[0] != active_ssid,
+                                                      -item[1].get_strength())), active_ssid
+
+    def refresh(self):
+        if self.window is None:
+            return
+        for child in self.list.get_children():
+            self.list.remove(child)
+        wired = self.wired_text()
+        if wired:
+            self.list.add(self.info_row("Ethernet", wired))
+        enabled = self.client.wireless_get_enabled()
+        self.switch.set_active(enabled)
+        self.switch.set_sensitive(self.client.wireless_hardware_get_enabled())
+        if self.device is None:
+            self.list.add(self.info_row("Wi-Fi", "No Wi-Fi adapter"))
+        elif not enabled:
+            self.list.add(self.info_row("Wi-Fi", "Off"))
+        else:
+            networks, active_ssid = self.networks()
+            if not networks:
+                self.list.add(self.info_row("Wi-Fi", "No networks found"))
+            for ssid, ap in networks[:MAX_ROWS]:
+                self.list.add(self.network_row(ssid, ap, ssid == active_ssid))
+        self.list.show_all()
+
+    def wired_text(self):
+        for device in self.client.get_devices():
+            if isinstance(device, NM.DeviceEthernet) and device.get_active_connection():
+                return device.get_active_connection().get_id()
+        return None
+
+    def info_row(self, name, value):
+        box = Gtk.Box(spacing=12)
+        box.get_style_context().add_class("h3xd-row")
+        label = Gtk.Label(label=name, xalign=0)
+        detail = Gtk.Label(label=value, xalign=1)
+        detail.get_style_context().add_class("h3xd-muted")
+        box.pack_start(label, True, True, 0)
+        box.pack_end(detail, False, False, 0)
+        row = Gtk.ListBoxRow()
+        row.add(box)
+        row.set_activatable(False)
+        row.set_selectable(False)
+        return row
+
+    def network_row(self, ssid, ap, connected):
+        box = Gtk.Box(spacing=12)
+        box.get_style_context().add_class("h3xd-row")
+        bars = Gtk.Label()
+        bars.set_markup(bars_markup(ap.get_strength()))
+        name = Gtk.Label(label=ssid, xalign=0)
+        name.set_ellipsize(Pango.EllipsizeMode.END)
+        box.pack_start(bars, False, False, 0)
+        box.pack_start(name, True, True, 0)
+
+        security = key_mgmt(ap)
+        if connected:
+            detail = Gtk.Label(label="Connected")
+            detail.get_style_context().add_class("h3xd-connected")
+        else:
+            detail = Gtk.Label(label=f"{ap.get_strength()}%"
+                               + ("  secured" if security not in (None, "owe") else ""))
+            for style in ("h3xd-muted", "h3xd-mono"):
+                detail.get_style_context().add_class(style)
+        box.pack_end(detail, False, False, 0)
+
+        # List rows take the arrow keys and Enter as well as a click.
+        row = Gtk.ListBoxRow()
+        row.add(box)
+        row.set_tooltip_text("Disconnect" if connected else "Connect")
+        row.activate_network = lambda: self.on_network(ssid, ap, connected)
+        return row
+
+    def on_network(self, ssid, ap, connected):
+        if connected:
+            self.device.disconnect_async(None, None, None)
+            return
+        security = key_mgmt(ap)
+        if security == "enterprise":
+            self.open_settings()
+            return
+        saved = self.saved_connection(ssid)
+        if saved is not None:
+            self.activate_saved(saved, ap, ssid, security)
+        elif security in (None, "owe"):
+            self.add_and_activate(new_connection(ssid, security, None), ap, None)
+        else:
+            self.ask_password(ssid, ap, security)
+
+    def activate_saved(self, connection, ap, ssid, security):
+        def done(client, result):
+            try:
+                active = client.activate_connection_finish(result)
+            except GLib.Error as error:
+                self.set_status(error.message)
+                return
+            self.watch(active, None, on_failure=lambda: self.ask_password(
+                ssid, ap, security, saved=connection, error="The saved password did not work."))
+
+        self.set_status(f"Connecting to {ssid}")
+        self.client.activate_connection_async(connection, self.device, ap.get_path(), None, done)
+
+    def add_and_activate(self, connection, ap, dialog):
+        def done(client, result):
+            try:
+                active = client.add_and_activate_connection_finish(result)
+            except GLib.Error as error:
+                self.fail(dialog, error.message)
+                return
+            self.watch(active, dialog, delete_on_failure=True)
+
+        path = ap.get_path() if ap is not None else None
+        self.client.add_and_activate_connection_async(connection, self.device, path, None, done)
+
+    def watch(self, active, dialog, delete_on_failure=False, on_failure=None):
+        """Waits until the connection is up or has failed; a failed new profile is removed,
+        so that a mistyped password is not kept."""
+        state = {"timeout": 0}
+
+        def finish(ok):
+            if state["timeout"]:
+                GLib.source_remove(state["timeout"])
+                state["timeout"] = 0
+            active.disconnect_by_func(on_state)
+            if ok:
+                if dialog is not None:
+                    dialog.destroy()
+                self.set_status("")
+                return
+            if delete_on_failure and active.get_connection() is not None:
+                active.get_connection().delete_async(None, None, None)
+            if on_failure is not None:
+                on_failure()
+            else:
+                self.fail(dialog, "Could not connect. Check the password and try again.")
+
+        def on_state(_active, new_state, _reason):
+            if new_state == NM.ActiveConnectionState.ACTIVATED:
+                finish(True)
+            elif new_state == NM.ActiveConnectionState.DEACTIVATED:
+                finish(False)
+
+        def on_timeout():
+            state["timeout"] = 0
+            finish(False)
+            return GLib.SOURCE_REMOVE
+
+        if active.get_state() == NM.ActiveConnectionState.ACTIVATED:
+            if dialog is not None:
+                dialog.destroy()
+            return
+        active.connect("state-changed", on_state)
+        state["timeout"] = GLib.timeout_add_seconds(ACTIVATION_TIMEOUT_S, on_timeout)
+
+    def fail(self, dialog, message):
+        if dialog is not None:
+            dialog.show_error(message)
+        else:
+            self.set_status(message)
+
+    def ask_password(self, ssid, ap, security, saved=None, error=None):
+        def connect(password):
+            if saved is not None:
+                self.update_saved(saved, ap, security, password, dialog)
+            else:
+                self.add_and_activate(new_connection(ssid, security, password), ap, dialog)
+
+        # WPA passwords have 8 to 63 characters; a WEP key can be shorter.
+        min_length = 1 if security == "wep" else 8
+        dialog = PasswordDialog(self, f"Connect to {ssid}", "Enter the Wi-Fi password.",
+                                connect, ask_ssid=False, min_length=min_length)
+        self.show_dialog(dialog, error)
+
+    def update_saved(self, connection, ap, security, password, dialog):
+        secret = connection.get_setting_wireless_security()
+        if secret is None:
+            secret = NM.SettingWirelessSecurity.new()
+            secret.set_property(NM.SETTING_WIRELESS_SECURITY_KEY_MGMT, security)
+            connection.add_setting(secret)
+        if security == "wep":
+            secret.set_wep_key(0, password)
+        else:
+            secret.set_property(NM.SETTING_WIRELESS_SECURITY_PSK, password)
+
+        def committed(remote, result):
+            try:
+                remote.commit_changes_finish(result)
+            except GLib.Error as error:
+                dialog.show_error(error.message)
+                return
+
+            def activated(client, result):
+                try:
+                    active = client.activate_connection_finish(result)
+                except GLib.Error as activation_error:
+                    dialog.show_error(activation_error.message)
+                    return
+                self.watch(active, dialog)
+
+            self.client.activate_connection_async(connection, self.device, ap.get_path(),
+                                                  None, activated)
+
+        connection.commit_changes_async(True, None, committed)
+
+    def ask_hidden(self):
+        def connect(password, ssid):
+            security = "wpa-psk" if password else None
+            self.add_and_activate(new_connection(ssid, security, password, hidden=True),
+                                  None, dialog)
+
+        dialog = PasswordDialog(self, "Hidden network",
+                                "Enter the network name and, if it has one, the password.",
+                                connect, ask_ssid=True, min_length=0)
+        self.show_dialog(dialog, None)
+
+    def show_dialog(self, dialog, error):
+        self.dialog = dialog
+        dialog.connect("destroy", lambda _dialog: setattr(self, "dialog", None))
+        if self.window is not None:
+            self.window.close()
+        dialog.show_all()
+        if error:
+            dialog.show_error(error)
+        dialog.present()
+
+    def open_settings(self):
+        Gio.Subprocess.new(["nm-connection-editor"], Gio.SubprocessFlags.NONE)
+        if self.window is not None:
+            self.window.close()
+
+
+class PasswordDialog(Gtk.ApplicationWindow):
+    """The centred dialog that asks for the password (and the name of a hidden network)."""
+
+    def __init__(self, app, title, text, on_connect, ask_ssid, min_length):
+        super().__init__(application=app, title=title)
+        self.on_connect = on_connect
+        self.min_length = min_length
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.get_style_context().add_class("h3xd-popup")
+        screen = self.get_screen()
+        if screen.get_rgba_visual() is not None and screen.is_composited():
+            self.set_visual(screen.get_rgba_visual())
+        h3xd_ui.close_on_escape(self)
+
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        card.set_size_request(DIALOG_WIDTH, -1)
+        for name in ("h3xd-card", "h3xd-dialog"):
+            card.get_style_context().add_class(name)
+        heading = Gtk.Label(label=title, xalign=0)
+        heading.get_style_context().add_class("h3xd-dialog-title")
+        heading.set_ellipsize(Pango.EllipsizeMode.END)
+        hint = Gtk.Label(label=text, xalign=0)
+        hint.set_line_wrap(True)
+        hint.get_style_context().add_class("h3xd-muted")
+        card.pack_start(heading, False, False, 0)
+        card.pack_start(hint, False, False, 0)
+
+        self.ssid = None
+        if ask_ssid:
+            self.ssid = Gtk.Entry(placeholder_text="Network name")
+            self.ssid.connect("activate", lambda _entry: self.password.grab_focus())
+            card.pack_start(self.ssid, False, False, 0)
+        self.password = Gtk.Entry(placeholder_text="Password")
+        self.password.set_visibility(False)
+        self.password.set_input_purpose(Gtk.InputPurpose.PASSWORD)
+        self.password.connect("activate", lambda _entry: self.submit())
+        card.pack_start(self.password, False, False, 0)
+        show = Gtk.CheckButton(label="Show password")
+        show.connect("toggled", lambda button: self.password.set_visibility(button.get_active()))
+        card.pack_start(show, False, False, 0)
+
+        self.error = Gtk.Label(xalign=0)
+        self.error.set_line_wrap(True)
+        self.error.get_style_context().add_class("h3xd-error")
+        self.error.set_no_show_all(True)
+        card.pack_start(self.error, False, False, 0)
+
+        buttons = Gtk.Box(spacing=8)
+        buttons.set_halign(Gtk.Align.END)
+        cancel = Gtk.Button(label="Cancel")
+        cancel.connect("clicked", lambda _button: self.destroy())
+        self.connect_button = Gtk.Button(label="Connect")
+        self.connect_button.get_style_context().add_class("h3xd-primary")
+        self.connect_button.connect("clicked", lambda _button: self.submit())
+        buttons.pack_start(cancel, False, False, 0)
+        buttons.pack_start(self.connect_button, False, False, 0)
+        card.pack_start(buttons, False, False, 0)
+        self.add(card)
+
+        card.show_all()
+        _minimum, natural = card.get_preferred_height()
+        h3xd_ui.center_on_pointer_monitor(self, DIALOG_WIDTH, natural)
+        (self.ssid or self.password).grab_focus()
+
+    def submit(self):
+        password = self.password.get_text()
+        if self.ssid is not None:
+            ssid = self.ssid.get_text().strip()
+            if not ssid:
+                self.show_error("Enter the network name.")
+                return
+            self.busy()
+            self.on_connect(password, ssid)
+            return
+        if len(password) < self.min_length:
+            self.show_error(f"The password needs at least {self.min_length} characters.")
+            return
+        self.busy()
+        self.on_connect(password)
+
+    def busy(self):
+        self.error.hide()
+        self.connect_button.set_sensitive(False)
+        self.connect_button.set_label("Connecting")
+
+    def show_error(self, message):
+        self.connect_button.set_sensitive(True)
+        self.connect_button.set_label("Connect")
+        self.error.set_text(message)
+        self.error.show()
+        self.password.grab_focus()
+
+
+if __name__ == "__main__":
+    sys.exit(Network().run(sys.argv))

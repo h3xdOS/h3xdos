@@ -1,0 +1,462 @@
+#!/usr/bin/env python3
+"""H3XD launcher (design 2b): type to find an application, Enter opens it, Tab switches to
+files and commands, Esc closes. The first start stays resident, so that Super opens the
+launcher without waiting for Python to start."""
+
+import json
+import os
+import sys
+import zlib
+
+sys.path.insert(0, "/usr/lib/h3xd/python")
+import h3xd_ui  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("GdkX11", "3.0")
+from gi.repository import Gdk, GdkX11, Gio, GLib, Gtk, Pango  # noqa: E402
+
+APP_ID = "org.h3xd.Launcher"
+WIDTH = 640
+# Design 2b places the card 160 px below the top edge of a 900 px screen.
+TOP_FRACTION = 160 / 900
+MAX_RESULTS = 6
+# Queries this long also match inside names, keywords and descriptions.
+LOOSE_MATCH_LENGTH = 3
+# How often each application was opened from here, to put the usual ones first.
+USAGE_FILE = os.path.join(GLib.get_user_state_dir(), "h3xd", "launcher-usage.json")
+# Tile background and letter colours of design 2b.
+TILE_COLORS = (("#3a1d22", "#f08a8e"), ("#12304a", "#5cb6e4"),
+               ("#1a202b", "#6fd6a6"), ("#1a202b", "#c6cbd5"))
+FILE_DIRS = ("", "Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos")
+# xfwm4 may report a focus change while the window maps; ignore it this long.
+FOCUS_GRACE_MS = 400
+
+CSS = """
+window.h3xd-launcher.dimmed {
+    background-color: rgba(8, 10, 14, 0.6);
+}
+.h3xd-launcher-search {
+    padding: 18px 20px;
+}
+.h3xd-card .h3xd-launcher-search entry {
+    font-size: 20px;
+    border: none;
+    background-color: transparent;
+    padding: 0;
+}
+.h3xd-launcher-list {
+    padding: 8px;
+}
+.h3xd-tile {
+    border-radius: 4px;
+    font-family: "JetBrains Mono";
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 36px;
+    min-height: 36px;
+}
+.h3xd-launcher-name {
+    font-size: 15px;
+    font-weight: 500;
+}
+.h3xd-launcher-footer {
+    padding: 10px 20px;
+    font-size: 12px;
+}
+.h3xd-key {
+    font-family: "JetBrains Mono";
+    color: #c6cbd5;
+}
+""" + "".join(
+    f".h3xd-tile-{n} {{ background-color: {bg}; color: {ink}; }}\n"
+    for n, (bg, ink) in enumerate(TILE_COLORS)
+)
+
+
+class Result:
+    def __init__(self, mono, color, name, desc, activate):
+        self.mono = mono
+        self.color = color
+        self.name = name
+        self.desc = desc
+        self.activate = activate
+
+
+def mono_for(name):
+    words = name.split()
+    if len(words) > 1:
+        return words[0][0].upper() + words[1][0].lower()
+    return name[:2].capitalize()
+
+
+def color_for(name):
+    return zlib.crc32(name.encode()) % len(TILE_COLORS)
+
+
+def load_usage():
+    try:
+        with open(USAGE_FILE) as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as error:
+        # A damaged file only costs the ordering; start counting again.
+        print(f"h3xd-launcher: ignoring {USAGE_FILE}: {error}", file=sys.stderr)
+        return {}
+
+
+def save_usage(usage):
+    os.makedirs(os.path.dirname(USAGE_FILE), exist_ok=True)
+    with open(USAGE_FILE, "w") as handle:
+        json.dump(usage, handle)
+
+
+def monitor_index(monitor):
+    display = monitor.get_display()
+    for index in range(display.get_n_monitors()):
+        if display.get_monitor(index) == monitor:
+            return index
+    return 0
+
+
+def score(query, name, keywords, desc):
+    """Lower is better; None when the entry does not match. Short queries only match the
+    start of the name or of one of its words, which keeps the list short and obvious."""
+    name = name.lower()
+    if name.startswith(query):
+        return 0
+    if any(word.startswith(query) for word in name.split()):
+        return 1
+    if len(query) < LOOSE_MATCH_LENGTH:
+        return None
+    if query in name:
+        return 2
+    if any(word.lower().startswith(query) for word in keywords):
+        return 3
+    if query in desc.lower():
+        return 4
+    return None
+
+
+class Launcher(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID,
+                         flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        self.window = None
+        self.apps = []
+        self.files_mode = False
+        self.results = []
+        self.selected = 0
+        self.shown_at = 0
+        self.usage = load_usage()
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        h3xd_ui.apply_css(CSS)
+        self.hold()
+        self.load_apps()
+        self.monitor = Gio.AppInfoMonitor.get()
+        self.monitor.connect("changed", lambda _monitor: self.load_apps())
+        self.build_window()
+        # The launcher stays resident anyway, so it also keeps the panel's bar image at the
+        # width of the screen. GDK reports a changed workarea as changed monitors too, and
+        # the panel changes the workarea when its background changes, so only a new width
+        # or compositor state regenerates the image.
+        self.panel_key = None
+        self.update_panel_background()
+        Gdk.Screen.get_default().connect("monitors-changed", self.update_panel_background)
+        Gdk.Screen.get_default().connect("composited-changed", self.update_panel_background)
+
+    def update_panel_background(self, *_args):
+        screen = Gdk.Screen.get_default()
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor(0)
+        key = (monitor.get_geometry().width, monitor.get_scale_factor(), screen.is_composited())
+        if key != self.panel_key:
+            self.panel_key = key
+            Gio.Subprocess.new(["h3xd-panel-background"], Gio.SubprocessFlags.NONE)
+
+    def do_command_line(self, command_line):
+        if "--background" not in command_line.get_arguments()[1:]:
+            self.toggle()
+        return 0
+
+    def load_apps(self):
+        self.apps = []
+        for info in Gio.AppInfo.get_all():
+            if not info.should_show():
+                continue
+            name = info.get_display_name() or info.get_name()
+            desc = info.get_description() or ""
+            keywords = []
+            # Desktop entries carry keywords and a generic name; naming the class by its
+            # Gio or GioUnix module would depend on the GLib version.
+            if hasattr(info, "get_keywords"):
+                desc = desc or info.get_generic_name() or ""
+                keywords = info.get_keywords() or []
+            self.apps.append((name, desc, keywords, info))
+
+    def build_window(self):
+        window = h3xd_ui.make_popup(self, "H3XD launcher")
+        window.get_style_context().add_class("h3xd-launcher")
+        window.connect("key-press-event", self.on_key)
+        window.connect("button-press-event", self.on_backdrop_click)
+        window.connect("focus-out-event", self.on_focus_out)
+        window.connect("delete-event", lambda *_args: window.hide() or True)
+
+        self.card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.card.get_style_context().add_class("h3xd-card")
+        self.card.set_size_request(WIDTH, -1)
+        self.card.set_halign(Gtk.Align.CENTER)
+        self.card.set_valign(Gtk.Align.START)
+
+        search = Gtk.Box(spacing=14)
+        search.get_style_context().add_class("h3xd-launcher-search")
+        self.entry = Gtk.Entry()
+        self.entry.set_hexpand(True)
+        self.entry.connect("changed", lambda _entry: self.refresh())
+        self.entry.connect("activate", lambda _entry: self.activate_selected())
+        self.mode_label = Gtk.Label()
+        self.mode_label.get_style_context().add_class("h3xd-muted")
+        search.pack_start(self.entry, True, True, 0)
+        search.pack_end(self.mode_label, False, False, 0)
+        self.card.pack_start(search, False, False, 0)
+
+        self.list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        self.list.get_style_context().add_class("h3xd-launcher-list")
+        self.list.get_style_context().add_class("h3xd-rule")
+        self.card.pack_start(self.list, False, False, 0)
+
+        self.footer = Gtk.Box(spacing=20)
+        self.footer.get_style_context().add_class("h3xd-launcher-footer")
+        self.footer.get_style_context().add_class("h3xd-rule")
+        self.footer.get_style_context().add_class("h3xd-muted")
+        self.card.pack_start(self.footer, False, False, 0)
+
+        window.add(self.card)
+        self.window = window
+
+    def footer_hint(self, key, text):
+        label = Gtk.Label()
+        label.set_markup(f'<span font_family="JetBrains Mono" foreground="#c6cbd5">{key}</span> '
+                         f'{GLib.markup_escape_text(text)}')
+        return label
+
+    def update_footer(self):
+        for child in self.footer.get_children():
+            self.footer.remove(child)
+        self.footer.pack_start(self.footer_hint("Enter", "open"), False, False, 0)
+        tab_text = "apps" if self.files_mode else "files and commands"
+        self.footer.pack_start(self.footer_hint("Tab", tab_text), False, False, 0)
+        self.footer.pack_end(self.footer_hint("Esc", "close"), False, False, 0)
+        self.footer.show_all()
+        self.mode_label.set_text("Files and commands" if self.files_mode else "Apps")
+
+    def toggle(self):
+        if self.window.get_visible():
+            self.window.hide()
+            return
+        self.files_mode = False
+        self.entry.set_text("")
+        self.update_footer()
+        self.refresh()
+        self.show()
+
+    def show(self):
+        monitor, _x, _y = h3xd_ui.pointer_monitor()
+        geometry = monitor.get_geometry()
+        top = geometry.y + int(geometry.height * TOP_FRACTION)
+        style = self.window.get_style_context()
+        if self.window.get_visual() == self.window.get_screen().get_rgba_visual() \
+                and self.window.get_screen().is_composited():
+            # Dim the whole monitor behind the card, panel included, as in the design. A
+            # full-screen window is the one xfwm4 lets cover the panel.
+            style.add_class("dimmed")
+            self.card.set_margin_top(top - geometry.y)
+            self.window.set_resizable(True)
+            self.window.fullscreen_on_monitor(self.window.get_screen(), monitor_index(monitor))
+        else:
+            style.remove_class("dimmed")
+            self.card.set_margin_top(0)
+            self.window.unfullscreen()
+            self.window.set_resizable(False)
+            self.window.move(geometry.x + (geometry.width - WIDTH) // 2, top)
+        self.window.show_all()
+        self.shown_at = GLib.get_monotonic_time()
+        # A fresh server timestamp counts as user activity for xfwm4's focus stealing
+        # prevention; without it a resident window may come up behind the active one.
+        gdk_window = self.window.get_window()
+        self.window.present_with_time(GdkX11.x11_get_server_time(gdk_window))
+        self.entry.grab_focus()
+
+    def on_focus_out(self, *_args):
+        if GLib.get_monotonic_time() - self.shown_at > FOCUS_GRACE_MS * 1000:
+            self.window.hide()
+        return False
+
+    def on_backdrop_click(self, _window, event):
+        allocation = self.card.get_allocation()
+        inside = (allocation.x <= event.x <= allocation.x + allocation.width
+                  and allocation.y <= event.y <= allocation.y + allocation.height)
+        if not inside:
+            self.window.hide()
+        return False
+
+    def on_key(self, _window, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.window.hide()
+        elif event.keyval in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab):
+            self.files_mode = not self.files_mode
+            self.update_footer()
+            self.refresh()
+        elif event.keyval == Gdk.KEY_Down:
+            self.select(self.selected + 1)
+        elif event.keyval == Gdk.KEY_Up:
+            self.select(self.selected - 1)
+        else:
+            return False
+        return True
+
+    def refresh(self):
+        query = self.entry.get_text().strip()
+        self.results = self.find_files(query) if self.files_mode else self.find_apps(query)
+        self.selected = 0
+        self.render()
+
+    def find_apps(self, query):
+        if not query:
+            return []
+        query = query.lower()
+        matches = []
+        for name, desc, keywords, info in self.apps:
+            rank = score(query, name, keywords, desc)
+            if rank is not None:
+                uses = self.usage.get(info.get_id() or name, 0)
+                matches.append((rank, -uses, len(name), name.lower(), name, desc, info))
+        matches.sort(key=lambda match: match[:4])
+        return [Result(mono_for(name), color_for(name), name, desc, self.launcher_for(info))
+                for *_key, name, desc, info in matches[:MAX_RESULTS]]
+
+    def launcher_for(self, info):
+        def launch():
+            context = Gdk.Display.get_default().get_app_launch_context()
+            info.launch([], context)
+            key = info.get_id() or info.get_name()
+            self.usage[key] = self.usage.get(key, 0) + 1
+            save_usage(self.usage)
+        return launch
+
+    def find_files(self, query):
+        if not query:
+            return []
+        results = [
+            Result(">", 3, query, "Run command", lambda: self.spawn(["sh", "-c", query])),
+            Result(">_", 3, query, "Run in terminal",
+                   lambda: self.spawn(["exo-open", "--launch", "TerminalEmulator", query])),
+        ]
+        seen = set()
+        for path in self.matching_paths(query.lower()):
+            if path in seen:
+                continue
+            seen.add(path)
+            name = os.path.basename(path)
+            folder = os.path.dirname(path).replace(os.path.expanduser("~"), "~", 1)
+            if os.path.isdir(path):
+                mono = "Di"
+            else:
+                mono = (os.path.splitext(name)[1][1:3] or name[:2]).capitalize()
+            uri = Gio.File.new_for_path(path).get_uri()
+            results.append(Result(mono, 1, name, folder, self.opener_for(uri)))
+            if len(results) >= MAX_RESULTS:
+                break
+        return results
+
+    def matching_paths(self, query):
+        for item in Gtk.RecentManager.get_default().get_items():
+            path = GLib.filename_from_uri(item.get_uri())[0] if item.get_uri().startswith("file:") else None
+            if path and query in os.path.basename(path).lower() and os.path.exists(path):
+                yield path
+        home = os.path.expanduser("~")
+        for folder in FILE_DIRS:
+            directory = os.path.join(home, folder)
+            try:
+                names = sorted(os.listdir(directory))
+            except OSError:
+                # Missing XDG folders are normal on a fresh account.
+                continue
+            for name in names:
+                if not name.startswith(".") and query in name.lower():
+                    yield os.path.join(directory, name)
+
+    def opener_for(self, uri):
+        def open_uri():
+            context = Gdk.Display.get_default().get_app_launch_context()
+            Gio.AppInfo.launch_default_for_uri(uri, context)
+        return open_uri
+
+    def spawn(self, argv):
+        Gio.Subprocess.new(argv, Gio.SubprocessFlags.NONE)
+
+    def render(self):
+        for child in self.list.get_children():
+            self.list.remove(child)
+        for index, result in enumerate(self.results):
+            self.list.pack_start(self.row(index, result), False, False, 0)
+        self.list.show_all()
+        self.list.set_visible(bool(self.results))
+
+    def row(self, index, result):
+        box = Gtk.Box(spacing=14)
+        box.get_style_context().add_class("h3xd-row")
+        if index == self.selected:
+            box.get_style_context().add_class("selected")
+
+        tile = Gtk.Label(label=result.mono)
+        for name in ("h3xd-tile", f"h3xd-tile-{result.color}"):
+            tile.get_style_context().add_class(name)
+        box.pack_start(tile, False, False, 0)
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        name = Gtk.Label(label=result.name, xalign=0)
+        name.get_style_context().add_class("h3xd-launcher-name")
+        name.set_ellipsize(Pango.EllipsizeMode.END)
+        desc = Gtk.Label(label=result.desc, xalign=0)
+        desc.get_style_context().add_class("h3xd-muted")
+        desc.set_ellipsize(Pango.EllipsizeMode.END)
+        text.pack_start(name, False, False, 0)
+        text.pack_start(desc, False, False, 0)
+        box.pack_start(text, True, True, 0)
+
+        if index == self.selected:
+            hint = Gtk.Label(label="Enter")
+            for name in ("h3xd-mono", "h3xd-muted"):
+                hint.get_style_context().add_class(name)
+            box.pack_end(hint, False, False, 0)
+
+        event_box = Gtk.EventBox()
+        event_box.add(box)
+        event_box.connect("button-release-event", lambda *_args: self.activate_index(index))
+        event_box.connect("enter-notify-event", lambda *_args: self.select(index))
+        return event_box
+
+    def select(self, index):
+        if not self.results:
+            return
+        index = max(0, min(index, len(self.results) - 1))
+        if index != self.selected:
+            self.selected = index
+            self.render()
+
+    def activate_selected(self):
+        if self.results:
+            self.activate_index(self.selected)
+
+    def activate_index(self, index):
+        result = self.results[index]
+        self.window.hide()
+        result.activate()
+
+
+if __name__ == "__main__":
+    sys.exit(Launcher().run(sys.argv))

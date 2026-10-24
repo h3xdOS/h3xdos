@@ -11,6 +11,9 @@ instalátor, nainstalovaný systém má desktop Xfce 4.20 ve vlastním vzhledu H
   i správce: [AKTUALIZACE.md](AKTUALIZACE.md).
 - Ovladače podle detekované grafiky (Intel, AMD, NVIDIA) a virtuálního stroje, zram swap
   a TRIM pro slabší PC, výchozí aplikace (Chromium, Code - OSS, Mousepad a další).
+- Ovládání ve stylu Hyprlandu nad Xfce (Super+T, Super+1 až 5, dokování oken), vlastní
+  vyhledávání aplikací, výběr Wi-Fi, kalendář a přihlašovací i zamykací obrazovka podle
+  návrhu v2. Přehled zkratek je v [AKTUALIZACE.md](AKTUALIZACE.md).
 - `apt` a `kali-apt` spouští skutečný apt v kontejnerech Ubuntu 24.04 a Kali Rolling
   (distrobox), Arch systém zůstává čistý.
 
@@ -58,7 +61,9 @@ Boot test projde, když sériová konzole v BIOS i UEFI ukáže `h3xd login:`.
 | `pkgs/h3xdos-containers` | `apt`, `kali-apt`, `h3xdos-box`, manifest distroboxu |
 | `pkgs/h3xdos-calamares-config` | konfigurace instalátoru, branding, live relace jen s instalátorem |
 | `pkgs/h3xdos-update` | `h3xdos-update`, položka System Update, uživatelský časovač, `/etc/h3xdos/update.conf` |
-| `pkgs/h3xdos-hardware` | `h3xdos-drivers` (detekce GPU a VM), zram swap, nastavení swapu, TRIM |
+| `pkgs/h3xdos-hardware` | `h3xdos-drivers` (detekce GPU a VM), zram swap, nastavení swapu, TRIM, vypnutí systemd-networkd |
+| `pkgs/h3xd-shell` | `h3xd-launcher`, `h3xd-dock`, `h3xd-network`, `h3xd-calendar`, `h3xd-panel-background` (Python, GTK 3) |
+| `pkgs/h3xd-greeter` | přihlašovací a zamykací obrazovka pro LightDM (Python, GTK 3), s light-lockerem |
 | `pkgs/h3xdos-apps` | metabalíček výchozích aplikací, výchozí programy pro typy souborů |
 | `scripts/` | `bootstrap.ps1`, `provision.sh`, `repo-build.sh`, `repo-publish.sh`, `build.sh`, `boot-test.sh` |
 

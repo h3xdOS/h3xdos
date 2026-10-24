@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""Hyprland-style window docking on xfwm4, with the gaps of design 2a.
+
+  h3xd-dock left|right|up|down   dock the active window to a half; combining two directions
+                                 gives a quarter, up fills the screen, down restores or minimizes
+  h3xd-dock tile                 lay out every window of the workspace side by side
+  h3xd-dock close                close the active window
+  h3xd-dock workspace N          switch to workspace N (from 1)
+  h3xd-dock send N               move the active window to workspace N
+
+Workspaces are switched here and not by xfwm4: while Super alone is bound to the launcher,
+xfsettingsd holds the Super key and xfwm4 never sees Super+1.
+"""
+
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/lib/h3xd/python")
+import h3xd_ui  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("GdkX11", "3.0")
+gi.require_version("Wnck", "3.0")
+from gi.repository import Gdk, GdkX11, GLib, Wnck  # noqa: E402
+
+GAP = h3xd_ui.GAP
+# A window this many pixels off a slot still counts as docked there. Terminals and editors
+# round their size down to whole character cells, so a docked window is up to one cell
+# smaller than its slot.
+TOLERANCE = 24
+STATE_FILE = os.path.join(GLib.get_user_cache_dir(), "h3xd", "dock-restore.json")
+# Size of a window restored without a remembered geometry, as a share of the screen.
+RESTORE_SHARE = 0.6
+
+# Slots on a 2x2 grid: (column, row, columns spanned, rows spanned).
+SLOTS = {
+    "full": (0, 0, 2, 2),
+    "left": (0, 0, 1, 2),
+    "right": (1, 0, 1, 2),
+    "top": (0, 0, 2, 1),
+    "bottom": (0, 1, 2, 1),
+    "top-left": (0, 0, 1, 1),
+    "top-right": (1, 0, 1, 1),
+    "bottom-left": (0, 1, 1, 1),
+    "bottom-right": (1, 1, 1, 1),
+}
+
+# Where each direction sends a window from its current slot (None: not docked).
+MOVES = {
+    "left": {None: "left", "full": "left", "left": "left", "right": "restore",
+             "top": "top-left", "bottom": "bottom-left", "top-left": "top-left",
+             "top-right": "top-left", "bottom-left": "bottom-left",
+             "bottom-right": "bottom-left"},
+    "right": {None: "right", "full": "right", "right": "right", "left": "restore",
+              "top": "top-right", "bottom": "bottom-right", "top-right": "top-right",
+              "top-left": "top-right", "bottom-right": "bottom-right",
+              "bottom-left": "bottom-right"},
+    "up": {None: "full", "full": "full", "top": "full", "bottom": "restore",
+           "left": "top-left", "right": "top-right", "top-left": "top-left",
+           "top-right": "top-right", "bottom-left": "left", "bottom-right": "right"},
+    "down": {None: "minimize", "full": "restore", "top": "restore", "bottom": "bottom",
+             "left": "bottom-left", "right": "bottom-right", "top-left": "left",
+             "top-right": "right", "bottom-left": "bottom-left",
+             "bottom-right": "bottom-right"},
+}
+
+
+class Area:
+    """The part of a monitor that docked windows share, inside the outer gaps."""
+
+    def __init__(self, monitor):
+        work = monitor.get_workarea()
+        geometry = monitor.get_geometry()
+        # The H3XD panel reserves its own gap below the bar; any other edge gets one here.
+        top = 0 if work.y > geometry.y else GAP
+        self.x = work.x + GAP
+        self.y = work.y + top
+        self.width = work.width - 2 * GAP
+        self.height = work.height - top - GAP
+
+    def cell(self, column, row, columns, rows, grid_columns=2, grid_rows=2):
+        width = (self.width - (grid_columns - 1) * GAP) / grid_columns
+        height = (self.height - (grid_rows - 1) * GAP) / grid_rows
+        return (round(self.x + column * (width + GAP)),
+                round(self.y + row * (height + GAP)),
+                round(columns * width + (columns - 1) * GAP),
+                round(rows * height + (rows - 1) * GAP))
+
+    def slot(self, name):
+        return self.cell(*SLOTS[name])
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as state:
+            return json.load(state)
+    except FileNotFoundError:
+        return {}
+
+
+def save_state(state):
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    with open(STATE_FILE, "w") as handle:
+        json.dump(state, handle)
+
+
+def frame(window):
+    return tuple(window.get_geometry())
+
+
+def monitor_of(window):
+    x, y, width, height = frame(window)
+    return Gdk.Display.get_default().get_monitor_at_point(x + width // 2, y + height // 2)
+
+
+def current_slot(window, area):
+    actual = frame(window)
+    for name in SLOTS:
+        if all(abs(a - b) <= TOLERANCE for a, b in zip(actual, area.slot(name))):
+            return name
+    return None
+
+
+def place(window, rect):
+    """Moves the window frame to rect. libwnck converts the frame rectangle to the client
+    window by the frame extents, which only lands exactly with static gravity."""
+    if window.is_maximized() or window.is_maximized_horizontally() \
+            or window.is_maximized_vertically():
+        window.unmaximize()
+    x, y, width, height = rect
+    mask = (Wnck.WindowMoveResizeMask.X | Wnck.WindowMoveResizeMask.Y
+            | Wnck.WindowMoveResizeMask.WIDTH | Wnck.WindowMoveResizeMask.HEIGHT)
+    window.set_geometry(Wnck.WindowGravity.STATIC, mask, x, y, width, height)
+
+
+def remember(window, state):
+    key = str(window.get_xid())
+    if key not in state:
+        state[key] = list(frame(window))
+
+
+def restore(window, area, state):
+    saved = state.pop(str(window.get_xid()), None)
+    if saved is None:
+        width = round(area.width * RESTORE_SHARE)
+        height = round(area.height * RESTORE_SHARE)
+        saved = (area.x + (area.width - width) // 2, area.y + (area.height - height) // 2,
+                 width, height)
+    place(window, saved)
+
+
+def docked_windows(screen, active):
+    workspace = screen.get_active_workspace()
+    monitor = monitor_of(active)
+    windows = [active]
+    for window in reversed(screen.get_windows_stacked()):
+        if window == active or window.is_minimized() or window.is_skip_tasklist():
+            continue
+        if window.get_window_type() != Wnck.WindowType.NORMAL:
+            continue
+        if workspace is not None and not window.is_on_workspace(workspace):
+            continue
+        if monitor_of(window) == monitor:
+            windows.append(window)
+    return windows
+
+
+def tile(screen, active, area, state):
+    windows = docked_windows(screen, active)
+    count = len(windows)
+    if count == 1:
+        rects = [area.slot("full")]
+    elif count == 2:
+        rects = [area.slot("left"), area.slot("right")]
+    elif count == 4:
+        rects = [area.slot(name) for name in ("top-left", "top-right", "bottom-left",
+                                              "bottom-right")]
+    else:
+        # The active window keeps the left half, the others stack on the right.
+        stack = count - 1
+        rects = [area.slot("left")] + [area.cell(1, row, 1, 1, grid_rows=stack)
+                                       for row in range(stack)]
+    for window, rect in zip(windows, rects):
+        if current_slot(window, area) is None:
+            remember(window, state)
+        place(window, rect)
+
+
+def switch_workspace(screen, number, send, timestamp):
+    workspace = screen.get_workspace(number - 1)
+    if workspace is None:
+        print(f"h3xd-dock: there is no workspace {number}", file=sys.stderr)
+        return 1
+    active = screen.get_active_window()
+    if send:
+        if active is not None and active.get_window_type() == Wnck.WindowType.NORMAL:
+            active.move_to_workspace(workspace)
+    else:
+        workspace.activate(timestamp)
+    return 0
+
+
+def main(argv):
+    simple = len(argv) == 2 and argv[1] in (*MOVES, "tile", "close")
+    numbered = len(argv) == 3 and argv[1] in ("workspace", "send") and argv[2].isdigit()
+    if not (simple or numbered):
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    action = argv[1]
+
+    screen = Wnck.Screen.get_default()
+    screen.force_update()
+    if numbered:
+        timestamp = GdkX11.x11_get_server_time(Gdk.get_default_root_window())
+        result = switch_workspace(screen, int(argv[2]), action == "send", timestamp)
+        Gdk.Display.get_default().flush()
+        return result
+    active = screen.get_active_window()
+    if active is None or active.get_window_type() != Wnck.WindowType.NORMAL:
+        # The desktop or a panel has the focus: nothing to dock.
+        return 0
+
+    display = Gdk.Display.get_default()
+    timestamp = GdkX11.x11_get_server_time(Gdk.get_default_root_window())
+    if action == "close":
+        active.close(timestamp)
+        display.flush()
+        return 0
+
+    area = Area(monitor_of(active))
+    state = load_state()
+    if action == "tile":
+        tile(screen, active, area, state)
+    else:
+        slot = current_slot(active, area)
+        target = MOVES[action][slot]
+        if target == "minimize":
+            active.minimize()
+        elif target == "restore":
+            restore(active, area, state)
+        else:
+            if slot is None:
+                remember(active, state)
+            place(active, area.slot(target))
+    # Forget closed windows, so the file holds only what can still be restored.
+    live = {str(window.get_xid()) for window in screen.get_windows()}
+    save_state({key: rect for key, rect in state.items() if key in live})
+    display.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

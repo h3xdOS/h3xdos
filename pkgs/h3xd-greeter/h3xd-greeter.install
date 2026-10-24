@@ -1,0 +1,14 @@
+# Calamares writes the greeter it found into /etc/lightdm/lightdm.conf, which LightDM reads
+# after lightdm.conf.d; comment that line out so that 60-h3xd-greeter.conf takes effect.
+# Only the value Calamares wrote is touched; a greeter chosen by hand stays.
+_lightdm_conf=/etc/lightdm/lightdm.conf
+
+post_install() {
+  if [[ -f $_lightdm_conf ]] && grep -qx 'greeter-session=lightdm-gtk-greeter' "$_lightdm_conf"; then
+    sed -i 's/^greeter-session=lightdm-gtk-greeter$/#&/' "$_lightdm_conf"
+  fi
+}
+
+post_upgrade() {
+  post_install
+}

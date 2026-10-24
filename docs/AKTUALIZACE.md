@@ -36,6 +36,50 @@ Verze 1.0 má starší System Update, který zná jen první krok. Postup:
 
 V terminálu totéž: `h3xdos-update && h3xdos-update`, potom `sudo reboot`.
 
+## Aktualizace 1.0.2 (24. 10. 2026)
+
+Po aktualizaci restartujte počítač. Při prvním přihlášení H3XD jednou upraví nastavení
+účtu: nový panel, klávesové zkratky, pět ploch a zámek obrazovky. Vlastní úpravy panelu
+se přitom přepíšou, ostatní vlastní zkratky zůstanou.
+
+- **Klávesové zkratky ve stylu Hyprlandu:**
+
+  | Zkratka | Co dělá |
+  |---|---|
+  | Super, Super+F, Super+Enter | vyhledávání aplikací |
+  | Super+T | terminál |
+  | Super+1 až Super+5 | přepnutí na plochu 1 až 5 |
+  | Super+Shift+1 až Super+Shift+5 | přesun okna na plochu 1 až 5 |
+  | Super+šipka vlevo / vpravo | okno do levé / pravé poloviny |
+  | Super+šipka nahoru | okno přes celou plochu; z poloviny do horní čtvrtiny |
+  | Super+šipka dolů | obnovení okna, minimalizace; z poloviny do dolní čtvrtiny |
+  | Super+D | rozložení všech oken plochy vedle sebe |
+  | Super+Q | zavření okna |
+  | Super+L | zamknutí obrazovky |
+  | Super+E | soubory |
+
+  Okna mezi sebou a od okrajů obrazovky drží mezeru 10 px. Tažením okna k okraji obrazovky
+  se okno přichytí k polovině nebo do rohu. Zkratky ploch fungují v rozložení us i cz.
+- **Vyhledávání aplikací** podle návrhu: uprostřed obrazovky, nejvýš šest výsledků, při
+  krátkém dotazu jen aplikace začínající zadanými písmeny, častěji spouštěné výš. Tab přepne
+  na soubory a příkazy (spuštění příkazu, v terminálu, soubory v domovské složce). Hlavní
+  terminál je jeden: Xfce Terminal. Kontejnery se jmenují Ubuntu a Kali Linux.
+- **Horní panel** plave 10 px od horního okraje a od stran obrazovky, mezery kolem pruhu
+  jsou průhledné, bez stínu. Indikátory mají zvýraznění při najetí a vlastní popisky.
+  Wi-Fi ukazuje název sítě a sílu signálu čtyřmi čárkami.
+- **Kalendář** po kliknutí na hodiny: větší a přehlednější, dnešní den v šestiúhelníku,
+  kolečko myši nebo šipky přepínají měsíce.
+- **Wi-Fi** po kliknutí na síť v panelu: seznam dostupných sítí se silou signálu, kliknutí
+  na síť a heslo v okně uprostřed obrazovky, spojení se rovnou aktivuje (bez `nmtui`).
+  Špatné heslo nechá okno otevřené a profil s ním se neuloží. Skrytá síť a pokročilé
+  nastavení jsou dole v seznamu. Ikona nm-applet v liště už není potřeba.
+- **Přihlašovací a zamykací obrazovka** podle návrhu: velké logo, velké hodiny, datum,
+  uživatel, heslo, volba sezení, přepnutí uživatele a vypnutí. Zamyká se přes light-locker,
+  heslo ověřuje LightDM. Kdyby nová obrazovka nešla spustit, nastoupí původní.
+- **Síť:** vedle NetworkManageru běžel i systemd-networkd a dával rozhraním druhou adresu.
+  Po restartu síť řídí jen NetworkManager.
+- **Šestiúhelníky** v panelu, kalendáři a na zamykací obrazovce mají pravidelný tvar jako logo.
+
 ## Co přinesla aktualizace z 23. 10. 2026
 
 - **Plocha:** popisky ikon na ploše jsou světlé (dříve tmavé na tmavé tapetě).

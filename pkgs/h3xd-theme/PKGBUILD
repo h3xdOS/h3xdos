@@ -1,8 +1,8 @@
 # Maintainer: h3xdOS <https://github.com/h3xdOS>
 
 pkgname=h3xd-theme
-pkgver=1.0
-pkgrel=2
+pkgver=1.0.2
+pkgrel=1
 pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
@@ -43,20 +43,25 @@ _square() {
     "$x" "$y" "$_button_px" "$_button_px" "$_button_radius" "$color"
 }
 
-# The window-menu button is the small split-hex used on every title bar in the design.
+# Every hexagon of H3XD is regular and pointy-top like the mark: as wide as 0.866 of its
+# height, rounded to even sizes so that both axes of symmetry fall on pixel edges.
+
+# The window-menu button is the small hexagon used on every title bar in the design,
+# 10x12 px around the centre of the button.
 _hex() {
   local color=$1 cx=$(( _button_w / 2 )) cy=$(( _border + (_title_h - _border) / 2 ))
   printf '<polygon points="%s,%s %s,%s %s,%s %s,%s %s,%s %s,%s" fill="%s"/>' \
-    "$cx" "$((cy - 5))" "$((cx + 5))" "$((cy - 2))" "$((cx + 5))" "$((cy + 3))" \
-    "$cx" "$((cy + 5))" "$((cx - 5))" "$((cy + 3))" "$((cx - 5))" "$((cy - 2))" "$color"
+    "$cx" "$((cy - 6))" "$((cx + 5))" "$((cy - 3))" "$((cx + 5))" "$((cy + 3))" \
+    "$cx" "$((cy + 6))" "$((cx - 5))" "$((cy + 3))" "$((cx - 5))" "$((cy - 3))" "$color"
 }
 
-# Workspace buttons from sheet 2a: pointy-top hexagons of 26x23 px, the ring 1.5 px wide.
-# GTK 3 CSS has no clip-path, so the panel draws them as background images.
-_ws_w=26
-_ws_h=23
-_ws_outer='13,0 26,5.75 26,17.25 13,23 0,17.25 0,5.75'
-_ws_inner='13,1.5 24.5,6.5 24.5,16.5 13,21.5 1.5,16.5 1.5,6.5'
+# Workspace buttons from sheet 2a: 22x26 px hexagons, the ring 1.5 px wide (the inner
+# outline is the outer one scaled by 19/22 about the centre). GTK 3 CSS has no clip-path,
+# so the panel draws them as background images.
+_ws_w=22
+_ws_h=26
+_ws_outer='11,0 22,6.5 22,19.5 11,26 0,19.5 0,6.5'
+_ws_inner='11,1.77 20.5,7.39 20.5,18.61 11,24.23 1.5,18.61 1.5,7.39'
 
 # Writes a 1x and a 2x PNG for HiDPI panels.
 _render_ws() {
