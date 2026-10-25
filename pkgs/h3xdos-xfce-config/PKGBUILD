@@ -2,16 +2,21 @@
 
 pkgname=h3xdos-xfce-config
 pkgver=2026.10.25
-pkgrel=1
+pkgrel=15
 pkgdesc='H3XD desktop defaults: Xfce panel, theme and shortcuts, terminal, prompt, LightDM, keyboard'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')
-depends=('grml-zsh-config'
+depends=('eza'
+         'fastfetch'
+         'grml-zsh-config'
+         'h3xd-firewall'
          'h3xd-greeter'
          'h3xd-icons'
          'h3xd-shell'
+         'h3xd-store'
          'h3xd-theme'
+         'h3xd-volume'
          'h3xdos-branding'
          'h3xdos-containers'
          'iwd'
@@ -19,7 +24,6 @@ depends=('grml-zsh-config'
          'lightdm-gtk-greeter'
          'network-manager-applet'
          'networkmanager'
-         'pavucontrol'
          'python'
          'starship'
          'wireplumber'
@@ -36,7 +40,9 @@ depends=('grml-zsh-config'
          'xfwm4'
          'xorg-xprop'
          'xorg-xrandr'
-         'zsh')
+         'zsh'
+         'zsh-autosuggestions'
+         'zsh-syntax-highlighting')
 # The installer rewrites the keyboard file; the rest are meant to be edited locally.
 backup=('etc/X11/xorg.conf.d/00-keyboard.conf'
         'etc/lightdm/lightdm.conf.d/50-h3xdos.conf'
@@ -61,9 +67,12 @@ source=('xsettings.xml'
         'networkmanager-wifi-backend.conf'
         'session-update'
         'h3xdos-session-update.desktop'
-        'autostart-hidden.desktop')
+        'autostart-hidden.desktop'
+        'gtk4.css'
+        'gtk3.css')
 sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
-            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP')
 
 package() {
   install -Dm644 -t "$pkgdir/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml" \
@@ -78,8 +87,11 @@ package() {
   install -Dm755 session-update "$pkgdir/usr/lib/h3xd/session-update"
   install -Dm644 h3xdos-session-update.desktop "$pkgdir/etc/xdg/autostart/h3xdos-session-update.desktop"
   install -Dm644 autostart-hidden.desktop "$pkgdir/usr/share/h3xd/autostart-hidden.desktop"
-  install -Dm644 starship.toml "$pkgdir/etc/skel/.config/starship.toml"
-  # grml-zsh-config owns /etc/skel/.zshrc and sources zshrc.local after its own prompt.
+  # Read through STARSHIP_CONFIG (zshrc), so that updates of the prompt reach every account.
+  install -Dm644 starship.toml "$pkgdir/usr/share/h3xd/starship.toml"
+  install -Dm644 gtk3.css "$pkgdir/etc/skel/.config/gtk-3.0/gtk.css"
+  install -Dm644 gtk4.css "$pkgdir/etc/skel/.config/gtk-4.0/gtk.css"
+  # grml-zsh-config owns /etc/skel/.zshrc and sources zshrc.local near its end.
   install -Dm644 zshrc "$pkgdir/etc/zsh/zshrc.local"
   install -Dm755 h3xd-panel-status "$pkgdir/usr/lib/h3xd/panel-status"
   install -Dm755 h3xdos-xfce-wallpaper "$pkgdir/usr/bin/h3xdos-xfce-wallpaper"

@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Text indicators for the H3XD panel (design 2a), read by xfce4-genmon-plugin:
-# a muted label followed by the value, no icons. "bat" prints nothing without a battery.
+# a muted label followed by the value; a wired connection shows the RJ45 mark and the
+# interface instead. "bat" prints nothing without a battery.
 set -euo pipefail
 
 readonly muted='#8b95a5'
 readonly value='#e6edf3'
 readonly bar_off='#3a4253'
+# The RJ45 tile of the H3XD icon theme.
+readonly wired_icon='network-wired'
 # Lower one eighth, three eighths, five eighths and full block.
 readonly bars=(▂ ▄ ▆ █)
 # Hover tone for the clickable indicators, the tile colour of sheet 2f.
@@ -74,10 +77,23 @@ wifi_signal() {
     printf '0'
 }
 
+# A cable: the RJ45 mark and the interface, which stays short, instead of the name of the
+# connection ("Wired connection 1"), which goes to the tooltip. genmon puts the mark and
+# the text in buttons of their own, so their inner sides lose the usual padding.
+wired() {
+    local device=$1 connection=$2
+    local css='button { margin: 14px 0; border-radius: 3px; padding: 0 8px 0 0; min-width: 0; } button:first-child { padding: 0 0 0 8px; } image { margin: 0; padding: 0; } button:hover { background-color: #1a202b; }'
+    printf '<icon>%s</icon><iconclick>h3xd-network</iconclick>' "$wired_icon"
+    printf '<txt><span foreground="%s">%s</span></txt>' "$value" "$(escape "$device")"
+    printf '<tool>%s</tool><txtclick>h3xd-network</txtclick><css>%s</css>\n' \
+        "$(escape "Wired: $connection on $device")" "$css"
+}
+
 network() {
-    local type state connection wired='' signal
-    # Wi-Fi comes first: its signal is what changes on a laptop.
-    while IFS=: read -r type state connection; do
+    local type state device connection cable='' cable_connection='' other='' signal
+    # Wi-Fi comes first: its signal is what changes on a laptop. The connection is the last
+    # field, since terse output only escapes the ":" inside it.
+    while IFS=: read -r type state device connection; do
         [[ $state == connected ]] || continue
         if [[ $type == wifi ]]; then
             signal=$(wifi_signal)
@@ -85,10 +101,15 @@ network() {
                 "$(signal_bars "$signal")"
             return
         fi
-        [[ -n $wired ]] || wired=$connection
-    done < <(nmcli -t -f TYPE,STATE,CONNECTION device)
-    if [[ -n $wired ]]; then
-        field net "$wired" h3xd-network "Connected: $wired"
+        if [[ $type == ethernet && -z $cable ]]; then
+            cable=$device cable_connection=$connection
+        fi
+        [[ -n $other ]] || other=$connection
+    done < <(nmcli -t -f TYPE,STATE,DEVICE,CONNECTION device)
+    if [[ -n $cable ]]; then
+        wired "$cable" "$cable_connection"
+    elif [[ -n $other ]]; then
+        field net "$other" h3xd-network "Connected: $other"
     else
         field net offline h3xd-network "Not connected; click to choose a Wi-Fi network"
     fi
@@ -98,11 +119,11 @@ volume() {
     local reading level
     reading=$(wpctl get-volume @DEFAULT_AUDIO_SINK@)
     if [[ $reading == *MUTED* ]]; then
-        field vol muted pavucontrol "Sound muted; click for the mixer"
+        field vol muted h3xd-volume "Sound muted; click for H3XD Volume"
         return
     fi
     level=$(awk '{ printf "%d", $2 * 100 + 0.5 }' <<<"$reading")
-    field vol "$level" pavucontrol "Volume $level %; click for the mixer"
+    field vol "$level" h3xd-volume "Volume $level %; click for H3XD Volume"
 }
 
 battery() {

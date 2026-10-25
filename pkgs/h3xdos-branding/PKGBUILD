@@ -2,7 +2,7 @@
 
 pkgname=h3xdos-branding
 pkgver=2026.10.23
-pkgrel=2
+pkgrel=3
 pkgdesc='H3XD identity: os-release, icons and lockups, wallpaper, GRUB theme, Plymouth splash, fastfetch preset'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'

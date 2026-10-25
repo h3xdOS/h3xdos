@@ -1,0 +1,909 @@
+#!/usr/bin/env python3
+"""H3XD Apps: installs applications from a chosen list of the Arch Linux repositories and
+from all of Flathub. Laid out like the H3XD settings (design 2d): views and categories on
+the left, cards on the right, the progress of an installation inside its card."""
+
+import glob
+import gzip
+import json
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+import xml.etree.ElementTree as ElementTree
+import zlib
+
+sys.path.insert(0, "/usr/lib/h3xd/python")
+import h3xd_ui  # noqa: E402
+
+import gi  # noqa: E402
+
+gi.require_version("Flatpak", "1.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+gi.require_version("Gtk", "3.0")
+from gi.repository import Flatpak, Gdk, GdkPixbuf, Gio, GLib, Gtk, Pango  # noqa: E402
+
+APP_ID = "org.h3xd.Store"
+CATALOG = "/usr/share/h3xd/store/catalog.json"
+HELPER = "/usr/lib/h3xd/store-helper"
+REMOTE = "flathub"
+BRANCH = "stable"
+WINDOW_SIZE = (1120, 760)
+SIDEBAR_WIDTH = 230
+SEARCH_WIDTH = 320
+CARD_WIDTH = 340
+ICON_PX = 48
+MAX_RESULTS = 60
+# Queries this long also match inside ids and summaries.
+LOOSE_MATCH_LENGTH = 3
+PULSE_MS = 120
+# Flathub's catalogue changes every day; an older copy is refreshed in the background.
+APPSTREAM_MAX_AGE_S = 24 * 3600
+# pkexec exits 126 when the password dialog is dismissed and 127 when not authorised.
+PKEXEC_DECLINED = (126, 127)
+XML_LANG = "{http://www.w3.org/XML/1998/namespace}lang"
+# Tile colours of the launcher (design 2b), for apps without an icon.
+TILE_COLORS = (("#3a1d22", "#f08a8e"), ("#12304a", "#5cb6e4"),
+               ("#1a202b", "#6fd6a6"), ("#1a202b", "#c6cbd5"))
+# What a card says for the lines of pacman's output; the counted lines give the fraction.
+PACMAN_STEPS = (
+    (re.compile(r"^:: Synchronizing package databases"), "Refreshing package lists"),
+    (re.compile(r"^:: Starting full system upgrade"), "Checking for updates"),
+    (re.compile(r"^:: Retrieving packages"), "Downloading"),
+    (re.compile(r"^(\S+) downloading\.\.\.$"), "Downloading {0}"),
+    (re.compile(r"^:: Processing package changes"), "Installing"),
+)
+PACMAN_COUNTED = re.compile(r"^\((\d+)/(\d+)\) (installing|upgrading|reinstalling|removing) (\S+)")
+PACMAN_ERROR = re.compile(r"^(error|store-helper|Error executing command as another user):\s*(.*)")
+
+CSS = """
+.h3xd-card.h3xd-store {
+    background-color: #181c25;
+    border-radius: 0;
+}
+.h3xd-store-side {
+    background-color: #151922;
+    padding: 20px 12px;
+}
+.h3xd-card button.h3xd-nav {
+    padding: 9px 12px;
+    border-radius: 4px;
+    background-color: transparent;
+    color: #c6cbd5;
+    font-size: 14px;
+}
+.h3xd-card button.h3xd-nav:hover {
+    background-color: #1f2430;
+}
+.h3xd-card button.h3xd-nav.selected {
+    background-color: #12304a;
+    color: #e6edf3;
+    font-weight: 600;
+}
+.h3xd-store-side-heading {
+    color: #8b95a5;
+    font-size: 12px;
+    margin: 20px 12px 6px 12px;
+}
+.h3xd-store-main {
+    padding: 36px 0 0 48px;
+}
+.h3xd-store-header, .h3xd-store-subtitle, .h3xd-store-content {
+    margin-right: 48px;
+}
+.h3xd-store-title {
+    font-size: 26px;
+    font-weight: 600;
+}
+.h3xd-store-subtitle {
+    margin-top: 6px;
+    margin-bottom: 28px;
+}
+.h3xd-store-content {
+    margin-bottom: 36px;
+}
+.h3xd-store-heading {
+    font-size: 14px;
+    font-weight: 600;
+}
+.h3xd-store-cardbox {
+    background-color: #1a202b;
+    border-radius: 4px;
+    padding: 14px 16px;
+}
+.h3xd-store-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+.h3xd-store-meta {
+    font-family: "JetBrains Mono";
+    font-size: 11px;
+    color: #8b95a5;
+}
+.h3xd-store-meta.h3xd-error {
+    color: #f07075;
+}
+.h3xd-card button.h3xd-danger {
+    background-color: transparent;
+    color: #f07075;
+}
+.h3xd-card button.h3xd-danger:hover {
+    background-color: #3a1d22;
+}
+progressbar.h3xd-store-progress trough {
+    min-height: 4px;
+    background-color: #2b3240;
+    border: none;
+    border-radius: 2px;
+}
+progressbar.h3xd-store-progress progress {
+    min-height: 4px;
+    background-color: #1793d1;
+    border: none;
+    border-radius: 2px;
+}
+flowboxchild {
+    padding: 0;
+}
+.h3xd-tile {
+    border-radius: 4px;
+    font-family: "JetBrains Mono";
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 48px;
+    min-height: 48px;
+}
+""" + "".join(
+    f".h3xd-tile-{n} {{ background-color: {bg}; color: {ink}; }}\n"
+    for n, (bg, ink) in enumerate(TILE_COLORS)
+)
+
+
+def log(message):
+    print(f"h3xd-store: {message}", file=sys.stderr)
+
+
+def styled(widget, *classes):
+    for name in classes:
+        widget.get_style_context().add_class(name)
+    return widget
+
+
+def label(text, *classes, xalign=0.0):
+    widget = Gtk.Label(label=text, xalign=xalign)
+    return styled(widget, *classes)
+
+
+def score(query, name, app_id, summary):
+    """Lower is better; None when the entry does not match. Short queries only match the
+    start of the name or of one of its words, as in the launcher."""
+    name = name.lower()
+    if name.startswith(query):
+        return 0
+    if any(word.startswith(query) for word in name.split()):
+        return 1
+    if len(query) < LOOSE_MATCH_LENGTH:
+        return None
+    if query in name:
+        return 2
+    if query in app_id.lower():
+        return 3
+    if query in summary.lower():
+        return 4
+    return None
+
+
+def mono_for(name):
+    words = name.split()
+    if len(words) > 1:
+        return words[0][0].upper() + words[1][0].lower()
+    return name[:2].capitalize()
+
+
+def untranslated(element, tag):
+    for child in element.findall(tag):
+        if child.get(XML_LANG) is None and child.text:
+            return " ".join(child.text.split())
+    return ""
+
+
+def appstream_file(directory):
+    for name in ("appstream.xml.gz", "appstream.xml"):
+        path = os.path.join(directory, name)
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def parse_appstream(path, directory):
+    """{app id: {name, summary, icon}} of the applications in Flathub's catalogue."""
+    apps = {}
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rb") as handle:
+        for _event, element in ElementTree.iterparse(handle):
+            if element.tag != "component":
+                continue
+            bundle = element.findtext("bundle", "")
+            if element.get("type") in ("desktop-application", "desktop") \
+                    and bundle.startswith("app/"):
+                app_id = bundle.split("/")[1]
+                icon = None
+                for icon_element in element.findall("icon"):
+                    if icon_element.get("type") != "cached" or not icon_element.text:
+                        continue
+                    size = icon_element.get("height", "64")
+                    candidate = os.path.join(directory, "icons", f"{size}x{size}",
+                                             icon_element.text.strip())
+                    if icon is None or size == "128":
+                        icon = candidate
+                apps[app_id] = {"name": untranslated(element, "name") or app_id,
+                                "summary": untranslated(element, "summary"),
+                                "icon": icon}
+            element.clear()
+    return apps
+
+
+class Entry:
+    """One app of the store, from the catalogue or from Flathub, and its state."""
+
+    def __init__(self, item):
+        self.id = item["id"]
+        self.source = item["source"]
+        self.name = item["name"]
+        self.summary = item.get("summary", "")
+        self.category = item.get("category")
+        self.packages = item.get("packages", [])
+        self.icon = item.get("icon")
+        self.flathub = item["id"] if self.source == "flathub" else item.get("flathub")
+        self.setup = item.get("setup")
+        self.default = item.get("default", False)
+        self.packages_installed = False
+        self.installed = False
+        self.busy = False
+        self.status = ""
+        self.fraction = None
+        self.error = False
+
+    @property
+    def key(self):
+        return f"{self.source}:{self.id}"
+
+    def setup_path(self, key):
+        return self.setup[key].format(config=GLib.get_user_config_dir())
+
+    def setup_done(self):
+        # "creates" is a pattern: the download puts the app in a folder named by version.
+        return not self.setup or bool(glob.glob(self.setup_path("creates")))
+
+
+class Card:
+    def __init__(self, store, entry, removable):
+        self.store = store
+        self.entry = entry
+        self.removable = removable
+        self.box = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10),
+                          "h3xd-store-cardbox")
+        self.box.set_size_request(CARD_WIDTH, -1)
+
+        top = Gtk.Box(spacing=14)
+        icon = store.icon_for(entry)
+        icon.set_valign(Gtk.Align.CENTER)
+        top.pack_start(icon, False, False, 0)
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        name = label(entry.name, "h3xd-store-name")
+        name.set_ellipsize(Pango.EllipsizeMode.END)
+        summary = label(entry.summary, "h3xd-muted")
+        summary.set_line_wrap(True)
+        summary.set_lines(2)
+        summary.set_ellipsize(Pango.EllipsizeMode.END)
+        summary.set_max_width_chars(1)
+        source = "Arch Linux" if entry.source == "arch" else "Flathub"
+        text.pack_start(name, False, False, 0)
+        text.pack_start(summary, False, False, 0)
+        text.pack_start(label(source, "h3xd-store-meta"), False, False, 0)
+        top.pack_start(text, True, True, 0)
+
+        buttons = Gtk.Box(spacing=8)
+        buttons.set_valign(Gtk.Align.CENTER)
+        self.remove = styled(Gtk.Button(label="Remove"), "h3xd-danger")
+        self.remove.set_no_show_all(True)
+        self.remove.connect("clicked", lambda _button: store.start(entry, "remove"))
+        self.action = Gtk.Button()
+        self.action.connect("clicked", self.on_action)
+        buttons.pack_start(self.remove, False, False, 0)
+        buttons.pack_start(self.action, False, False, 0)
+        top.pack_end(buttons, False, False, 0)
+        self.box.pack_start(top, True, True, 0)
+
+        # Only an installation in progress or its outcome shows below the app.
+        self.progress = styled(Gtk.ProgressBar(), "h3xd-store-progress")
+        self.progress.set_no_show_all(True)
+        self.box.pack_start(self.progress, False, False, 0)
+        self.status = label("", "h3xd-store-meta")
+        self.status.set_ellipsize(Pango.EllipsizeMode.END)
+        self.status.set_no_show_all(True)
+        self.box.pack_start(self.status, False, False, 0)
+        self.update()
+
+    def on_action(self, _button):
+        if self.entry.installed:
+            self.store.open_app(self.entry)
+        else:
+            self.store.start(self.entry, "install")
+
+    def update(self):
+        entry = self.entry
+        busy_elsewhere = self.store.operation is not None and not entry.busy
+        self.status.set_visible(bool(entry.status))
+        self.status.set_text(entry.status)
+        context = self.status.get_style_context()
+        if entry.error:
+            context.add_class("h3xd-error")
+        else:
+            context.remove_class("h3xd-error")
+        self.progress.set_visible(entry.busy)
+        if entry.busy and entry.fraction is not None:
+            self.progress.set_fraction(entry.fraction)
+        self.action.set_visible(not entry.busy)
+        self.remove.set_visible(not entry.busy and entry.installed and self.removable
+                                and not entry.default)
+        self.remove.set_sensitive(not busy_elsewhere)
+        primary = self.action.get_style_context()
+        if entry.installed:
+            self.action.set_label("Open")
+            primary.remove_class("h3xd-primary")
+            self.action.set_sensitive(True)
+        else:
+            self.action.set_label("Install")
+            primary.add_class("h3xd-primary")
+            self.action.set_sensitive(not busy_elsewhere)
+        self.action.set_tooltip_text("Another installation is running" if busy_elsewhere
+                                     and not entry.installed else None)
+
+
+class Store(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID)
+        self.window = None
+        self.view = "discover"
+        self.cards = {}
+        self.operation = None
+        self.pulse_source = 0
+        self.flathub = {}
+        self.flathub_entries = {}
+        self.flatpak_installed = {}
+        self.installation = None
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        h3xd_ui.apply_css(CSS)
+        with open(CATALOG) as handle:
+            catalogue = json.load(handle)
+        self.categories = catalogue["categories"]
+        self.entries = [Entry(item) for item in catalogue["apps"]]
+        try:
+            self.installation = Flatpak.Installation.new_system(None)
+        except GLib.Error as error:
+            log(f"Flatpak is not available: {error.message}")
+        self.refresh_installed()
+        self.build_window()
+        if self.installation is not None:
+            self.set_flathub_status("Flathub: loading catalogue")
+            threading.Thread(target=self.load_flathub, daemon=True).start()
+        else:
+            self.set_flathub_status("Flathub: not available")
+
+    def do_activate(self):
+        self.window.present()
+
+    # Data
+
+    def refresh_installed(self):
+        packages = sorted({name for entry in self.entries if entry.source == "arch"
+                           for name in entry.packages})
+        # pacman -T prints the missing ones and exits 127 when there are any.
+        result = subprocess.run(["pacman", "-T", "--", *packages], capture_output=True,
+                                text=True, check=False)
+        missing = set(result.stdout.split())
+        self.flatpak_installed = {}
+        if self.installation is not None:
+            try:
+                refs = self.installation.list_installed_refs_by_kind(Flatpak.RefKind.APP, None)
+            except GLib.Error as error:
+                log(f"cannot list Flatpak apps: {error.message}")
+                refs = []
+            self.flatpak_installed = {ref.get_name(): ref for ref in refs}
+        for entry in self.all_entries():
+            if entry.source == "arch":
+                # An app whose first download failed counts as not installed, so that
+                # Install offers the download again.
+                entry.packages_installed = not missing.intersection(entry.packages)
+                entry.installed = entry.packages_installed and entry.setup_done()
+            else:
+                entry.installed = entry.id in self.flatpak_installed
+
+    def all_entries(self):
+        return self.entries + list(self.flathub_entries.values())
+
+    def flathub_entry(self, app_id):
+        entry = next((item for item in self.entries
+                      if item.source == "flathub" and item.id == app_id), None)
+        if entry is not None:
+            return entry
+        if app_id not in self.flathub_entries:
+            app = self.flathub.get(app_id)
+            ref = self.flatpak_installed.get(app_id)
+            name = app["name"] if app else (ref.get_appdata_name() if ref else None)
+            summary = app["summary"] if app else (ref.get_appdata_summary() if ref else None)
+            entry = Entry({"id": app_id, "source": "flathub", "name": name or app_id,
+                           "summary": summary or ""})
+            entry.installed = app_id in self.flatpak_installed
+            self.flathub_entries[app_id] = entry
+        return self.flathub_entries[app_id]
+
+    def load_flathub(self):
+        """Runs in a thread: brings Flathub's catalogue up to date and reads it."""
+        try:
+            arch = Flatpak.get_default_arch()
+            remote = self.installation.get_remote_by_name(REMOTE, None)
+            directory = remote.get_appstream_dir(arch).get_path()
+            path = appstream_file(directory)
+            if path is None or time.time() - os.path.getmtime(path) > APPSTREAM_MAX_AGE_S:
+                GLib.idle_add(self.set_flathub_status, "Flathub: updating catalogue")
+                try:
+                    self.installation.update_appstream_sync(REMOTE, arch, None)
+                except GLib.Error as error:
+                    # An older copy still serves search while Flathub is out of reach.
+                    log(f"cannot update the Flathub catalogue: {error.message}")
+                directory = remote.get_appstream_dir(arch).get_path()
+                path = appstream_file(directory)
+            if path is None:
+                GLib.idle_add(self.set_flathub_status, "Flathub: offline")
+                return
+            apps = parse_appstream(path, directory)
+        except (GLib.Error, OSError, ElementTree.ParseError) as error:
+            log(f"cannot read the Flathub catalogue: {error}")
+            GLib.idle_add(self.set_flathub_status, "Flathub: not available")
+            return
+        GLib.idle_add(self.flathub_loaded, apps)
+
+    def flathub_loaded(self, apps):
+        self.flathub = apps
+        self.set_flathub_status(f"Flathub: {len(apps)} apps")
+        if self.operation is None:
+            self.render(keep_scroll=True)
+        return False
+
+    def set_flathub_status(self, text):
+        self.flathub_label.set_text(text)
+        return False
+
+    # Window
+
+    def build_window(self):
+        window = Gtk.ApplicationWindow(application=self, title="H3XD Apps")
+        window.set_default_size(*WINDOW_SIZE)
+        window.set_position(Gtk.WindowPosition.CENTER)
+        window.set_icon_name("package-x-generic")
+        root = styled(Gtk.Box(), "h3xd-card", "h3xd-store")
+        root.pack_start(self.build_sidebar(), False, False, 0)
+
+        main = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "h3xd-store-main")
+        header = styled(Gtk.Box(spacing=16), "h3xd-store-header")
+        self.title = label("", "h3xd-store-title")
+        header.pack_start(self.title, True, True, 0)
+        self.search = Gtk.SearchEntry()
+        self.search.set_placeholder_text("Search Arch Linux and Flathub")
+        self.search.set_size_request(SEARCH_WIDTH, -1)
+        self.search.set_valign(Gtk.Align.CENTER)
+        self.search.connect("search-changed", lambda _entry: self.render())
+        header.pack_end(self.search, False, False, 0)
+        main.pack_start(header, False, False, 0)
+        self.subtitle = label("", "h3xd-muted", "h3xd-store-subtitle")
+        main.pack_start(self.subtitle, False, False, 0)
+
+        self.scroller = Gtk.ScrolledWindow()
+        self.scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.content = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14),
+                              "h3xd-store-content")
+        self.scroller.add(self.content)
+        main.pack_start(self.scroller, True, True, 0)
+        root.pack_start(main, True, True, 0)
+
+        window.add(root)
+        self.window = window
+        self.render()
+        window.show_all()
+
+    def build_sidebar(self):
+        side = styled(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2),
+                      "h3xd-store-side")
+        side.set_size_request(SIDEBAR_WIDTH, -1)
+        self.nav = {}
+        for key, text in (("discover", "Discover"), ("installed", "Installed")):
+            side.pack_start(self.nav_button(key, text), False, False, 0)
+        side.pack_start(label("Categories", "h3xd-store-side-heading"), False, False, 0)
+        for category in self.categories:
+            side.pack_start(self.nav_button(category["id"], category["name"]), False, False, 0)
+        self.flathub_label = label("", "h3xd-store-meta")
+        self.flathub_label.set_margin_start(12)
+        side.pack_end(self.flathub_label, False, False, 0)
+        return side
+
+    def nav_button(self, key, text):
+        button = styled(Gtk.Button(label=text), "h3xd-nav")
+        button.get_child().set_xalign(0)
+        button.connect("clicked", lambda _button: self.navigate(key))
+        self.nav[key] = button
+        return button
+
+    def navigate(self, key):
+        self.view = key
+        if self.search.get_text():
+            # Clearing the search renders the view through search-changed.
+            self.search.set_text("")
+        else:
+            self.render()
+
+    def view_contents(self):
+        """(title, subtitle, [(heading or None, entries)], text when empty)."""
+        query = self.search.get_text().strip().lower()
+        if query:
+            note = "" if self.flathub else " Flathub's catalogue is not loaded yet."
+            return ("Search", f'Results for "{query}"', [(None, self.search_results(query))],
+                    "Nothing found." + note)
+        if self.view == "discover":
+            sections = [(category["name"],
+                         [entry for entry in self.entries if entry.category == category["id"]])
+                        for category in self.categories]
+            return ("Discover", "Chosen apps from Arch Linux and Flathub. "
+                    "Search finds everything on Flathub.", sections, "")
+        if self.view == "installed":
+            installed = [entry for entry in self.entries if entry.installed]
+            known = {entry.id for entry in installed if entry.source == "flathub"}
+            installed += [self.flathub_entry(app_id) for app_id in sorted(self.flatpak_installed)
+                          if app_id not in known]
+            return ("Installed", "Apps from this store and from Flathub",
+                    [(None, installed)], "Nothing installed from here yet.")
+        category = next(item for item in self.categories if item["id"] == self.view)
+        entries = [entry for entry in self.entries if entry.category == self.view]
+        return (category["name"], "From Arch Linux and Flathub. Search finds more.",
+                [(None, entries)], "")
+
+    def search_results(self, query):
+        matches = []
+        listed = set()
+        for entry in self.entries:
+            rank = score(query, entry.name, entry.id, entry.summary)
+            if entry.flathub:
+                listed.add(entry.flathub)
+            if rank is not None:
+                matches.append((rank, 0, entry.name.lower(), entry))
+        for app_id, app in self.flathub.items():
+            if app_id in listed:
+                continue
+            rank = score(query, app["name"], app_id, app["summary"])
+            if rank is not None:
+                matches.append((rank, 1, app["name"].lower(), app_id))
+        matches.sort(key=lambda match: match[:3])
+        return [match[3] if isinstance(match[3], Entry) else self.flathub_entry(match[3])
+                for match in matches[:MAX_RESULTS]]
+
+    def render(self, keep_scroll=False):
+        adjustment = self.scroller.get_vadjustment()
+        position = adjustment.get_value()
+        for child in self.content.get_children():
+            child.destroy()
+        self.cards = {}
+        title, subtitle, sections, empty = self.view_contents()
+        self.title.set_text(title)
+        self.subtitle.set_text(subtitle)
+        searching = bool(self.search.get_text().strip())
+        for key, button in self.nav.items():
+            context = button.get_style_context()
+            if key == self.view and not searching:
+                context.add_class("selected")
+            else:
+                context.remove_class("selected")
+        removable = self.view == "installed" and not searching
+        shown = 0
+        for heading, entries in sections:
+            if not entries:
+                continue
+            if heading:
+                self.content.pack_start(label(heading, "h3xd-store-heading"), False, False, 0)
+            flow = Gtk.FlowBox()
+            flow.set_selection_mode(Gtk.SelectionMode.NONE)
+            flow.set_homogeneous(True)
+            flow.set_min_children_per_line(2)
+            flow.set_max_children_per_line(4)
+            flow.set_column_spacing(16)
+            flow.set_row_spacing(16)
+            flow.set_margin_bottom(22)
+            for entry in entries:
+                card = Card(self, entry, removable)
+                self.cards[entry.key] = card
+                flow.add(card.box)
+            self.content.pack_start(flow, False, False, 0)
+            shown += len(entries)
+        if not shown and empty:
+            self.content.pack_start(label(empty, "h3xd-muted"), False, False, 0)
+        self.content.show_all()
+        for card in self.cards.values():
+            card.update()
+        if keep_scroll:
+            GLib.idle_add(adjustment.set_value, position)
+
+    def icon_for(self, entry):
+        app = self.flathub.get(entry.flathub) if entry.flathub else None
+        if app and app["icon"] and os.path.exists(app["icon"]):
+            scale = self.window.get_scale_factor() if self.window else 1
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    app["icon"], ICON_PX * scale, ICON_PX * scale, True)
+                surface = Gdk.cairo_surface_create_from_pixbuf(pixbuf, scale, None)
+                return Gtk.Image.new_from_surface(surface)
+            except GLib.Error as error:
+                log(f"cannot load {app['icon']}: {error.message}")
+        theme = Gtk.IconTheme.get_default()
+        for name in (entry.icon, entry.flathub):
+            if name and theme.has_icon(name):
+                image = Gtk.Image.new_from_icon_name(name, Gtk.IconSize.DIALOG)
+                image.set_pixel_size(ICON_PX)
+                return image
+        tile = label(mono_for(entry.name), "h3xd-tile",
+                     f"h3xd-tile-{zlib.crc32(entry.name.encode()) % len(TILE_COLORS)}",
+                     xalign=0.5)
+        return tile
+
+    # Operations
+
+    def update_card(self, entry):
+        card = self.cards.get(entry.key)
+        if card is not None:
+            card.update()
+        return False
+
+    def update_cards(self):
+        for card in self.cards.values():
+            card.update()
+
+    def start(self, entry, action):
+        if self.operation is not None:
+            return
+        self.operation = entry
+        entry.busy = True
+        entry.error = False
+        entry.fraction = None
+        verb = "Installing" if action == "install" else "Removing"
+        entry.status = f"{verb} {entry.name}"
+        self.pulse_source = GLib.timeout_add(PULSE_MS, self.pulse)
+        self.update_cards()
+        if entry.source == "flathub":
+            self.run_flatpak(entry, action)
+        elif action == "install" and entry.packages_installed:
+            self.run_setup(entry)
+        else:
+            self.run_helper(entry, action)
+
+    def pulse(self):
+        entry = self.operation
+        if entry is None:
+            self.pulse_source = 0
+            return False
+        card = self.cards.get(entry.key)
+        if card is not None and entry.fraction is None:
+            card.progress.pulse()
+        return True
+
+    def finish(self, entry, error):
+        self.operation = None
+        entry.busy = False
+        entry.fraction = None
+        entry.error = error is not None
+        self.refresh_installed()
+        if error is not None:
+            entry.status = error
+        elif not os.path.isdir(f"/usr/lib/modules/{os.uname().release}"):
+            # pacman removed the modules of the running kernel: a new one is installed.
+            entry.status = "Done. Restart to finish the system update."
+        else:
+            entry.status = ""
+        if self.view == "installed" and not self.search.get_text():
+            self.render(keep_scroll=True)
+        else:
+            self.update_cards()
+        return False
+
+    def run_helper(self, entry, action):
+        try:
+            process = Gio.Subprocess.new(
+                ["pkexec", HELPER, action, entry.id],
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        except GLib.Error as error:
+            self.finish(entry, error.message)
+            return
+        stream = Gio.DataInputStream.new(process.get_stdout_pipe())
+        failure = {"message": None}
+
+        def on_line(source, result):
+            try:
+                line, _length = source.read_line_finish_utf8(result)
+            except GLib.Error as error:
+                log(f"reading the helper's output: {error.message}")
+                line = None
+            if line is None:
+                process.wait_async(None, on_exit)
+                return
+            self.pacman_line(entry, line.strip(), failure)
+            source.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line)
+
+        def on_exit(source, result):
+            source.wait_finish(result)
+            status = source.get_exit_status() if source.get_if_exited() else -1
+            if status == 0:
+                if action == "install" and entry.setup:
+                    self.run_setup(entry)
+                else:
+                    self.finish(entry, None)
+            elif status in PKEXEC_DECLINED and failure["message"] is None:
+                self.finish(entry, "Cancelled")
+            else:
+                self.finish(entry, failure["message"] or f"pacman stopped with code {status}")
+
+        stream.read_line_async(GLib.PRIORITY_DEFAULT, None, on_line)
+
+    def pacman_line(self, entry, line, failure):
+        error = PACMAN_ERROR.match(line)
+        if error:
+            failure["message"] = error.group(2) or line
+            return
+        counted = PACMAN_COUNTED.match(line)
+        if counted:
+            done, total, verb, package = counted.groups()
+            entry.status = f"{verb.capitalize()} {package}"
+            entry.fraction = int(done) / int(total)
+        else:
+            for pattern, text in PACMAN_STEPS:
+                match = pattern.match(line)
+                if match:
+                    entry.status = text.format(*match.groups())
+                    entry.fraction = None
+                    break
+        self.update_card(entry)
+
+    def run_setup(self, entry):
+        """The first start of some apps downloads the app itself; the store does that with
+        its progress in the card, so the menu entry starts the app right away."""
+        setup = entry.setup
+        config = GLib.get_user_config_dir()
+        if entry.setup_done():
+            self.finish(entry, None)
+            return
+        # The downloader writes into this folder but does not create it.
+        os.makedirs(entry.setup_path("directory"), exist_ok=True)
+        command = [part.format(config=config) for part in setup["command"]]
+        pattern = re.compile(setup["progress"])
+        entry.status = setup["message"]
+        entry.fraction = 0.0
+        self.update_card(entry)
+        try:
+            process = Gio.Subprocess.new(
+                command, Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+        except GLib.Error as error:
+            self.finish(entry, error.message)
+            return
+        pending = {"text": ""}
+
+        def on_bytes(source, result):
+            try:
+                data = source.read_bytes_finish(result)
+            except GLib.Error as error:
+                log(f"reading {command[0]}: {error.message}")
+                data = None
+            if data is None or data.get_size() == 0:
+                process.wait_async(None, on_exit)
+                return
+            # Progress comes as lines rewritten with carriage returns.
+            text = pending["text"] + data.get_data().decode(errors="replace")
+            *lines, pending["text"] = re.split(r"[\r\n]", text)
+            for line in lines:
+                match = pattern.search(line)
+                if match:
+                    entry.status = line.split(" -")[0].strip()
+                    entry.fraction = int(match.group(1)) / 100
+            self.update_card(entry)
+            source.read_bytes_async(4096, GLib.PRIORITY_DEFAULT, None, on_bytes)
+
+        def on_exit(source, result):
+            source.wait_finish(result)
+            if source.get_if_exited() and source.get_exit_status() == 0:
+                self.finish(entry, None)
+            else:
+                self.finish(entry, f"{entry.name} could not be downloaded; try Open later")
+
+        process.get_stdout_pipe().read_bytes_async(4096, GLib.PRIORITY_DEFAULT, None, on_bytes)
+
+    def run_flatpak(self, entry, action):
+        ref = f"app/{entry.id}/{Flatpak.get_default_arch()}/{BRANCH}"
+
+        def work():
+            # The transaction runs its downloads on the thread's own main context, away
+            # from the one GTK iterates.
+            context = GLib.MainContext()
+            context.push_thread_default()
+            try:
+                transaction = Flatpak.Transaction.new_for_installation(self.installation, None)
+                if action == "install":
+                    transaction.add_install(REMOTE, ref, None)
+                else:
+                    transaction.add_uninstall(ref)
+                transaction.connect("new-operation", self.on_flatpak_operation, entry)
+                transaction.run(None)
+            except GLib.Error as error:
+                GLib.idle_add(self.finish, entry, error.message)
+                return
+            finally:
+                context.pop_thread_default()
+            GLib.idle_add(self.finish, entry, None)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def on_flatpak_operation(self, transaction, operation, progress, entry):
+        """Runs in the transaction's thread; the card is updated from the main loop."""
+        operations = transaction.get_operations()
+        refs = [item.get_ref() for item in operations]
+        index = refs.index(operation.get_ref()) if operation.get_ref() in refs else 0
+        total = max(len(operations), 1)
+        kind = operation.get_operation_type()
+        verb = "Removing" if kind == Flatpak.TransactionOperationType.UNINSTALL else "Installing"
+        name = operation.get_ref().split("/")[1]
+        progress.set_update_frequency(200)
+
+        def changed(item):
+            fraction = (index + item.get_progress() / 100) / total
+            GLib.idle_add(self.set_progress, entry, f"{verb} {name}", fraction)
+
+        progress.connect("changed", changed)
+
+    def set_progress(self, entry, status, fraction):
+        entry.status = status
+        entry.fraction = fraction
+        return self.update_card(entry)
+
+    def open_app(self, entry):
+        context = Gdk.Display.get_default().get_app_launch_context()
+        if entry.source == "flathub":
+            ref = self.flatpak_installed.get(entry.id)
+            try:
+                # Without a branch libflatpak looks for "master"; Flathub ships "stable".
+                self.installation.launch(entry.id, ref.get_arch() if ref else None,
+                                         ref.get_branch() if ref else BRANCH, None, None)
+            except GLib.Error as error:
+                entry.error, entry.status = True, error.message
+                self.update_card(entry)
+            return
+        info = self.desktop_entry(entry.packages)
+        if info is None:
+            entry.error, entry.status = True, "This app has no menu entry; start it from a terminal"
+            self.update_card(entry)
+            return
+        info.launch([], context)
+
+    @staticmethod
+    def desktop_entry(packages):
+        files = subprocess.run(["pacman", "-Qlq", "--", *packages], capture_output=True,
+                               text=True, check=False).stdout.split()
+        for path in files:
+            if path.startswith("/usr/share/applications/") and path.endswith(".desktop"):
+                info = Gio.DesktopAppInfo.new_from_filename(path)
+                if info is not None and info.should_show():
+                    return info
+        return None
+
+
+if __name__ == "__main__":
+    sys.exit(Store().run(sys.argv))

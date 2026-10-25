@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=H3XD Apps
+GenericName=App Store
+Comment=Install applications from Arch Linux and Flathub
+Exec=h3xd-store
+Icon=package-x-generic
+Terminal=false
+StartupNotify=true
+Categories=System;PackageManager;
+Keywords=store;install;software;flatpak;flathub;discord;steam;spotify;

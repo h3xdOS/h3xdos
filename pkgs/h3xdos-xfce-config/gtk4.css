@@ -1,0 +1,3 @@
+/* H3XD colours for GTK 4 and libadwaita applications. h3xd.css next to this file is
+   rewritten at every login from /usr/share/h3xd/gtk-4.0; your own rules go below. */
+@import url("h3xd.css");

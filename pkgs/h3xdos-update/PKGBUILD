@@ -2,8 +2,8 @@
 
 pkgname=h3xdos-update
 pkgver=2026.10.25
-pkgrel=1
-pkgdesc='H3XD updater: pacman, drivers, default apps, the Ubuntu and Kali containers, GitHub releases'
+pkgrel=3
+pkgdesc='H3XD updater: pacman, drivers, default apps, the Ubuntu and Kali containers, Flatpak apps, GitHub releases'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')

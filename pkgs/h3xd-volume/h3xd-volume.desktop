@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Volume
+GenericName=Volume Control
+Comment=Volume of speakers, microphones and programs, and how sound cards are used
+Exec=h3xd-volume
+Icon=h3xd-volume
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Audio;Mixer;GTK;
+Keywords=volume;sound;audio;mixer;speakers;headphones;microphone;balance;pipewire;

@@ -1,0 +1,37 @@
+[
+ {
+  "index": 123,
+  "driver": "PipeWire",
+  "owner_module": null,
+  "client": "121",
+  "sink": 73,
+  "sample_specification": "s16le 2ch 44100Hz",
+  "channel_map": "front-left,front-right",
+  "format": "pcm, format.sample_format = \"\\\"s16le\\\"\"  format.rate = \"44100\"  format.channels = \"2\"  format.channel_map = \"\\\"front-left,front-right\\\"\"",
+  "corked": false,
+  "mute": false,
+  "volume": {
+   "front-left": {
+    "value": 65536,
+    "value_percent": "100%",
+    "db": "0.00 dB"
+   },
+   "front-right": {
+    "value": 65536,
+    "value_percent": "100%",
+    "db": "0.00 dB"
+   }
+  },
+  "balance": 0.0,
+  "buffer_latency_usec": 0.0,
+  "sink_latency_usec": 0.0,
+  "resample_method": "PipeWire",
+  "properties": {
+   "application.name": "Firefox",
+   "media.name": "YouTube video",
+   "application.process.binary": "pacat",
+   "node.name": "Firefox",
+   "media.class": "Stream/Output/Audio"
+  }
+ }
+]

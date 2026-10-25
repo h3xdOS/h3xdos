@@ -3,8 +3,10 @@
 
 Package updates cannot change the xfconf settings in each home directory, so every login
 runs the steps this account has not had yet. A failed step is retried at the next login;
-the steps are written so that running one twice does no harm."""
+the steps are written so that running one twice does no harm. Every login also refreshes
+the account's copy of the H3XD colours and toggle pictures for GTK 4."""
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -21,6 +23,22 @@ PANEL_BUS_NAME = "org.xfce.Panel"
 PANEL_WAIT_S = 20
 ICON_THEME = "H3XD"
 PREVIOUS_ICON_THEME = "Papirus-Dark"
+SKEL_GTK3_CSS = "/etc/skel/.config/gtk-3.0/gtk.css"
+GTK3_CSS = os.path.join(CONFIG_HOME, "gtk-3.0", "gtk.css")
+SKEL_GTK4_CSS = "/etc/skel/.config/gtk-4.0/gtk.css"
+GTK4_CSS = os.path.join(CONFIG_HOME, "gtk-4.0", "gtk.css")
+# Flatpak apps see ~/.config/gtk-4.0 but not /usr/share, so the colours are copied there.
+H3XD_GTK4_SOURCE = "/usr/share/h3xd/gtk-4.0/libadwaita.css"
+H3XD_GTK4_COPY = os.path.join(CONFIG_HOME, "gtk-4.0", "h3xd.css")
+# The toggle pictures the colours refer to, next to the copy.
+H3XD_GTK4_ASSETS = "/usr/share/h3xd/gtk-4.0/h3xd-assets"
+H3XD_GTK4_ASSETS_COPY = os.path.join(CONFIG_HOME, "gtk-4.0", "h3xd-assets")
+STARSHIP_CONFIG = os.path.join(CONFIG_HOME, "starship.toml")
+# The prompt that releases 1.0 to 1.0.3 copied into new accounts; an unchanged copy gives
+# way to the system prompt in /usr/share/h3xd, which updates reach.
+SHIPPED_STARSHIP_SHA256 = {"5da2b71a394cdd9ca004d26fd9a575cef9a8167481acdbf2cc801dfd9f8c53a4"}
+# The shortcuts of the volume and microphone keys in the skeleton.
+VOLUME_KEYS = "/commands/custom/XF86Audio"
 
 
 def log(message):
@@ -142,10 +160,91 @@ def step_1_0_2_1():
     xfconf(channel, "-p", path, "-n", "-t", "string", "-s", ICON_THEME)
 
 
-STEPS = [step_1_0_2, step_1_0_2_1]
+def step_1_0_3():
+    """Tray icons in one row inside the panel bar with their menu on left click, and the
+    H3XD colours for GTK 4 and libadwaita applications."""
+    channel = "xfce4-panel"
+    listed = subprocess.run(["xfconf-query", "-c", channel, "-l", "-v"], capture_output=True,
+                            text=True, check=True).stdout
+    for line in listed.splitlines():
+        path, _space, value = line.partition(" ")
+        if path.count("/") == 2 and path.startswith("/plugins/") and value.strip() == "systray":
+            for name in ("single-row", "menu-is-primary"):
+                xfconf(channel, "-p", f"{path}/{name}", "-n", "-t", "bool", "-s", "true")
+    install_user_css(SKEL_GTK4_CSS, GTK4_CSS, os.path.basename(H3XD_GTK4_COPY))
+
+
+def install_user_css(skeleton, target, marker):
+    """Gives the account the skeleton's user stylesheet, unless it has its own; marker is
+    the import that shows the H3XD rules are in it already."""
+    if not os.path.exists(target):
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(skeleton) as source, open(target, "w") as copy:
+            copy.write(source.read())
+        return
+    with open(target) as handle:
+        if marker not in handle.read():
+            # The account has its own styles there; adding ours could undo them.
+            log(f"{target} exists without the H3XD rules; left as it is")
+
+
+def step_1_0_3_1():
+    """The terminal of design 2f: window settings and padding for every account, and the
+    system prompt for accounts that kept the prompt file of the earlier releases unchanged."""
+    apply_channel("xfce4-terminal")
+    install_user_css(SKEL_GTK3_CSS, GTK3_CSS, "/usr/share/h3xd/gtk-3.0/user.css")
+    if os.path.exists(STARSHIP_CONFIG):
+        with open(STARSHIP_CONFIG, "rb") as handle:
+            digest = hashlib.sha256(handle.read()).hexdigest()
+        if digest in SHIPPED_STARSHIP_SHA256:
+            os.remove(STARSHIP_CONFIG)
+        else:
+            log(f"{STARSHIP_CONFIG} has the account's own changes; left as it is")
+
+
+def copy_if_changed(source, target):
+    with open(source, "rb") as handle:
+        wanted = handle.read()
+    if os.path.exists(target):
+        with open(target, "rb") as handle:
+            if handle.read() == wanted:
+                return
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "wb") as handle:
+        handle.write(wanted)
+
+
+def refresh_gtk4_colours():
+    copy_if_changed(H3XD_GTK4_SOURCE, H3XD_GTK4_COPY)
+    for name in os.listdir(H3XD_GTK4_ASSETS):
+        copy_if_changed(os.path.join(H3XD_GTK4_ASSETS, name),
+                        os.path.join(H3XD_GTK4_ASSETS_COPY, name))
+
+
+def step_1_0_5():
+    """The volume keys through H3XD Volume, which shows the level on screen. A key that
+    the account has given to something else keeps it."""
+    channel = "xfce4-keyboard-shortcuts"
+    root = ElementTree.parse(os.path.join(SKEL, f"{channel}.xml")).getroot()
+    for path, kind, value in properties(root):
+        if not path.startswith(VOLUME_KEYS):
+            continue
+        current = subprocess.run(["xfconf-query", "-c", channel, "-p", path],
+                                 capture_output=True, text=True, check=False)
+        # A missing property exits non-zero.
+        if current.returncode != 0:
+            xfconf(channel, "-p", path, "-n", "-t", kind, "-s", value)
+
+
+STEPS = [step_1_0_2, step_1_0_2_1, step_1_0_3, step_1_0_3_1, step_1_0_5]
 
 
 def main():
+    try:
+        refresh_gtk4_colours()
+    except OSError as error:
+        # Only GTK 4 colours are at stake; the steps below still run.
+        log(f"cannot refresh {H3XD_GTK4_COPY}: {error}")
     try:
         with open(LEVEL_FILE) as handle:
             level = int(handle.read().strip() or 0)

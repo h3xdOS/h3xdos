@@ -1,17 +1,18 @@
 # Maintainer: h3xdOS <https://github.com/h3xdOS>
 
 pkgname=h3xd-theme
-pkgver=1.0.2.1
-pkgrel=1
-pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD'
+pkgver=1.0.4.1
+pkgrel=4
+pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD, with colours for GTK 4 and libadwaita'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')
-depends=('gtk3' 'h3xd-icons' 'ttf-ibm-plex' 'ttf-jetbrains-mono')
+depends=('gsettings-desktop-schemas' 'gtk3' 'h3xd-icons' 'ttf-ibm-plex' 'ttf-jetbrains-mono')
 makedepends=('librsvg')
 # Sources are files tracked next to this PKGBUILD in git.
-source=('index.theme' 'gtk.css' 'notify.css' 'themerc')
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+source=('index.theme' 'gtk.css' 'notify.css' 'themerc' 'libadwaita.css' '90_h3xd.gschema.override'
+        'user.css')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 # Geometry from sheet 2f: title bar 32 px including a 2 px border, buttons 14 px.
 _title_h=32
@@ -77,11 +78,161 @@ _ws_ring() {
   printf '<path d="M%s Z M%s Z" fill-rule="evenodd" fill="%s"/>' "$_ws_outer" "$_ws_inner" "$1"
 }
 
+# The H3XD toggle that stands for every check box and switch (design "Checkbox / toggle"):
+# a stretched hexagon track, 48 x 20 with 8 px deep points, and a hexagon knob that sits
+# left when off, right when on and in the middle when mixed.
+_track='M9 1H39L47 10L39 19H9L1 10Z'
+_knob='M9 4H17L21 10L17 16H9L5 10Z'
+_knob_view='5 4 16 12'
+# name, track fill, track stroke, knob, knob offset. Every track is one solid tone: an
+# outline would eat into the room around the knob in some states and not in others, and
+# the knob would look larger off than on.
+_toggle_looks=('off #2b3240 #2b3240 #8b95a5 0'
+               'off-hover #3a4253 #3a4253 #c6cbd5 0'
+               'on #1793d1 #1793d1 #0f1320 22'
+               'on-hover #5cb6e4 #5cb6e4 #0f1320 22'
+               'mixed #12304a #12304a #5cb6e4 11'
+               'mixed-hover #12304a #12304a #e6edf3 11')
+
+# Keeps the SVG for GTK 4 and renders a 1x and a 2x PNG of it for GTK 3.
+_render_asset() {
+  local name=$1 width=$2 height=$3 view=$4 body=$5
+  printf '<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="%s">%s</svg>' \
+    "$width" "$height" "$view" "$body" > "gtk4-assets/$name.svg"
+  rsvg-convert -w "$width" -h "$height" -o "assets/$name.png" "gtk4-assets/$name.svg"
+  rsvg-convert -w $((width * 2)) -h $((height * 2)) -o "assets/$name@2.png" "gtk4-assets/$name.svg"
+}
+
+# A track, with the knob at an offset when a knob colour is given.
+_toggle() {
+  local fill=$1 stroke=$2 knob=${3:-} offset=${4:-0}
+  printf '<path d="%s" fill="%s" stroke="%s" stroke-width="2" stroke-linejoin="round"/>' \
+    "$_track" "$fill" "$stroke"
+  if [[ -n $knob ]]; then
+    printf '<path d="%s" fill="%s" transform="translate(%s 0)"/>' "$_knob" "$knob" "$offset"
+  fi
+}
+
+_render_toggles() {
+  local look name fill stroke knob offset
+  for look in "${_toggle_looks[@]}"; do
+    read -r name fill stroke knob offset <<<"$look"
+    # Check boxes in dialogs, and the compact size of menus and lists.
+    _render_asset "toggle-$name" 48 20 '0 0 48 20' "$(_toggle "$fill" "$stroke" "$knob" "$offset")"
+    _render_asset "toggle-$name-compact" 38 16 '0 0 48 20' \
+      "$(_toggle "$fill" "$stroke" "$knob" "$offset")"
+    # Switches draw the track and their own sliding knob; they are never mixed.
+    if [[ $name != mixed* ]]; then
+      _render_asset "track-$name" 48 20 '0 0 48 20' "$(_toggle "$fill" "$stroke")"
+    fi
+  done
+  _render_asset knob-off 16 12 "$_knob_view" "<path d=\"$_knob\" fill=\"#8b95a5\"/>"
+  _render_asset knob-off-hover 16 12 "$_knob_view" "<path d=\"$_knob\" fill=\"#c6cbd5\"/>"
+  _render_asset knob-on 16 12 "$_knob_view" "<path d=\"$_knob\" fill=\"#0f1320\"/>"
+}
+
+# The toggle rules name every pseudo-class Adwaita, imported before them, gives its check
+# boxes and switches: GTK 3 weighs rules of one stylesheet by specificity before order, so
+# a plain "check" would lose to Adwaita's "check:backdrop" in an unfocused window.
+_rest_mods=('' ':active' ':disabled' ':backdrop' ':backdrop:disabled')
+
+# Joins node + state + each modifier + tail into a selector list.
+_list() {
+  local node=$1 state=$2 tail=$3 mod first=1
+  shift 3
+  for mod in "$@"; do
+    if (( ! first )); then
+      printf ',\n'
+    fi
+    printf '%s%s%s%s' "$node" "$state" "$mod" "$tail"
+    first=0
+  done
+}
+
+# Joins selector lists from _list into one.
+_join() {
+  local group first=1
+  for group in "$@"; do
+    if (( ! first )); then
+      printf ',\n'
+    fi
+    printf '%s' "$group"
+    first=0
+  done
+}
+
+_image() {
+  printf '%s {\n    background-image: -gtk-scaled(url("assets/%s.png"), url("assets/%s@2.png"));\n}\n\n' \
+    "$1" "$2" "$2"
+}
+
+# Check boxes with a prefix ("" or the menu and list nodes) at one size.
+_check_css() {
+  local prefix=$1 suffix=$2 width=$3 height=$4 margin=$5 node="${1}check" state all=() look
+  for state in '' ':checked' ':indeterminate'; do
+    all+=("$(_list "$node" "$state" '' "${_rest_mods[@]}" ':hover')")
+  done
+  printf '%s {\n    min-width: %spx;\n    min-height: %spx;\n    margin: %s;\n    padding: 0;\n' \
+    "$(_join "${all[@]}")" "$width" "$height" "$margin"
+  printf '    border: none;\n    border-radius: 0;\n    box-shadow: none;\n    color: transparent;\n'
+  printf '    background-color: transparent;\n    background-size: %spx %spx;\n' "$width" "$height"
+  printf '    background-position: center;\n    background-repeat: no-repeat;\n'
+  printf '    -gtk-icon-source: none;\n    transition: 250ms;\n}\n\n'
+  for look in 'off:' 'on::checked' 'mixed::indeterminate'; do
+    _image "$(_list "$node" "${look#*:}" '' "${_rest_mods[@]}")" "toggle-${look%%:*}$suffix"
+    _image "$node${look#*:}:hover" "toggle-${look%%:*}-hover$suffix"
+  done
+}
+
+_switch_css() {
+  local state all=() sliders=()
+  for state in '' ':checked'; do
+    all+=("$(_list switch "$state" '' "${_rest_mods[@]}" ':hover')")
+    sliders+=("$(_list switch "$state" ' slider' "${_rest_mods[@]}" ':hover')")
+  done
+  # GTK makes the knob half as wide as the switch, so 44 px between 2 px paddings give
+  # the knob its 22 px of travel.
+  printf '%s {\n    min-width: 44px;\n    min-height: 12px;\n    padding: 4px 2px;\n' \
+    "$(_join "${all[@]}")"
+  printf '    border: none;\n    border-radius: 0;\n    box-shadow: none;\n'
+  printf '    background-color: transparent;\n    background-size: 48px 20px;\n'
+  printf '    background-position: center;\n    background-repeat: no-repeat;\n    transition: 250ms;\n}\n\n'
+  _image "$(_list switch '' '' "${_rest_mods[@]}")" track-off
+  _image switch:hover track-off-hover
+  _image "$(_list switch ':checked' '' "${_rest_mods[@]}")" track-on
+  _image switch:checked:hover track-on-hover
+  printf '%s {\n    min-width: 22px;\n    min-height: 12px;\n    margin: 0;\n' \
+    "$(_join "${sliders[@]}")"
+  printf '    border: none;\n    border-radius: 0;\n    box-shadow: none;\n'
+  printf '    background-color: transparent;\n    background-size: 16px 12px;\n'
+  printf '    background-position: center;\n    background-repeat: no-repeat;\n}\n\n'
+  _image "$(_list switch '' ' slider' "${_rest_mods[@]}")" knob-off
+  _image 'switch:hover slider' knob-off-hover
+  _image "$(_list switch ':checked' ' slider' "${_rest_mods[@]}" ':hover')" knob-on
+}
+
+_toggle_css() {
+  printf '\n/* Generated by the h3xd-theme PKGBUILD: the H3XD toggle for check boxes and switches. */\n\n'
+  _check_css '' '' 48 20 '0 14px 0 0'
+  # Menus and lists take the compact 38 x 16 size.
+  _check_css 'menu menuitem ' '-compact' 38 16 '0 8px 0 0'
+  _check_css 'treeview.view ' '-compact' 38 16 '0'
+  _switch_css
+  local state disabled=()
+  for state in '' ':checked' ':indeterminate'; do
+    disabled+=("$(_list check "$state" '' ':disabled' ':backdrop:disabled')")
+  done
+  disabled+=("$(_list switch '' '' ':disabled' ':backdrop:disabled')")
+  printf '%s {\n    opacity: 0.4;\n}\n' "$(_join "${disabled[@]}")"
+}
+
 build() {
-  mkdir -p xfwm4 assets
+  mkdir -p xfwm4 assets gtk4-assets
   _render_ws ws-active "<polygon points=\"$_ws_outer\" fill=\"#1793d1\"/>"
   _render_ws ws-idle "$(_ws_ring '#3a4253')"
   _render_ws ws-hover "$(_ws_ring '#4b5366')"
+  _render_toggles
+  { cat gtk.css; _toggle_css; } > gtk-3.0.css
 
   local state border title idle hover press close close_hover close_press menu
   for state in active inactive; do
@@ -132,9 +283,15 @@ build() {
 package() {
   local theme="$pkgdir/usr/share/themes/h3xd-dark"
   install -Dm644 index.theme "$theme/index.theme"
-  install -Dm644 gtk.css "$theme/gtk-3.0/gtk.css"
+  install -Dm644 gtk-3.0.css "$theme/gtk-3.0/gtk.css"
   install -Dm644 -t "$theme/gtk-3.0/assets" assets/*.png
   install -Dm644 notify.css "$theme/xfce-notify-4.0/gtk.css"
   install -Dm644 themerc "$theme/xfwm4/themerc"
   install -Dm644 -t "$theme/xfwm4" xfwm4/*.png
+  # Not gtk-4.0/gtk.css of the theme: GTK 4 would take that as a complete theme.
+  install -Dm644 libadwaita.css "$pkgdir/usr/share/h3xd/gtk-4.0/libadwaita.css"
+  install -Dm644 user.css "$pkgdir/usr/share/h3xd/gtk-3.0/user.css"
+  install -Dm644 -t "$pkgdir/usr/share/h3xd/gtk-4.0/h3xd-assets" gtk4-assets/*.svg
+  install -Dm644 90_h3xd.gschema.override \
+    "$pkgdir/usr/share/glib-2.0/schemas/90_h3xd.gschema.override"
 }

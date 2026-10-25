@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Updates H3XD: Arch Linux and [h3xdos] packages through pacman (the [h3xdos]
 # repo is served from GitHub Pages), drivers for the detected hardware, the default
-# applications, then the Ubuntu and Kali distrobox containers, and reports the newest
-# H3XD release published on GitHub.
+# applications, the Ubuntu and Kali distrobox containers and the Flatpak applications,
+# and reports the newest H3XD release published on GitHub.
 set -euo pipefail
 
 readonly release_api=https://api.github.com/repos/h3xdOS/h3xdos/releases/latest
@@ -89,6 +89,12 @@ case ${1:-} in
             echo "== $box container"
             distrobox upgrade "$box"
         done
+        if enabled update_flatpaks && command -v flatpak >/dev/null; then
+            echo "== Flatpak applications"
+            # Updating system-wide apps needs no password (flatpak's polkit policy).
+            flatpak update --system --noninteractive
+            flatpak uninstall --system --unused --noninteractive
+        fi
         echo "== H3XD releases"
         if tag=$(latest_release); then
             echo "Newest release: $tag ($releases_page)"

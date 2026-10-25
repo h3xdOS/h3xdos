@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Installs or removes the packages of one Arch entry of the H3XD Apps catalogue.
+
+Runs as root through pkexec, so it takes catalogue ids and never package names:
+  store-helper install|remove <id>"""
+
+import json
+import os
+import sys
+
+CATALOG = "/usr/share/h3xd/store/catalog.json"
+PACMAN_LOCK = "/var/lib/pacman/db.lck"
+EXIT_USAGE = 2
+EXIT_LOCKED = 3
+
+
+def fail(message, status):
+    print(f"store-helper: {message}", file=sys.stderr)
+    return status
+
+
+def main(argv):
+    if len(argv) != 3 or argv[1] not in ("install", "remove"):
+        return fail("usage: store-helper install|remove <id>", EXIT_USAGE)
+    action, app_id = argv[1], argv[2]
+    with open(CATALOG) as handle:
+        apps = json.load(handle)["apps"]
+    entry = next((app for app in apps if app["id"] == app_id and app["source"] == "arch"), None)
+    if entry is None:
+        return fail(f"{app_id} is not an Arch app of the catalogue", EXIT_USAGE)
+    if action == "remove" and entry.get("default"):
+        return fail(f"{entry['name']} is part of H3XD and stays installed", EXIT_USAGE)
+    if os.path.exists(PACMAN_LOCK):
+        return fail("another package operation is running; try again when it is done",
+                    EXIT_LOCKED)
+    packages = entry["packages"]
+    if action == "install":
+        # On Arch, installing from freshly synced databases without upgrading the rest of
+        # the system is a partial upgrade, so the install brings everything up to date.
+        pacman = ["pacman", "-Syu", "--needed", "--noconfirm", "--", *packages]
+    else:
+        pacman = ["pacman", "-Rns", "--noconfirm", "--", *packages]
+    # pacman buffers its output when it goes to a pipe; the store shows it line by line.
+    command = ["/usr/bin/stdbuf", "-oL", "-eL", "/usr/bin/env", "LC_ALL=C", *pacman]
+    os.execv(command[0], command)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

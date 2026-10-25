@@ -1,0 +1,160 @@
+/* H3XD colours for GTK 4 and libadwaita applications (design v2, sheet 2f). libadwaita
+   ignores GTK themes, but reads ~/.config/gtk-4.0/gtk.css, which imports a copy of this
+   file that every login refreshes, so that Flatpak apps see it too.
+   libadwaita 1.6 reads the named colours, later releases the custom properties. */
+
+@define-color accent_color #5cb6e4;
+@define-color accent_bg_color #1793d1;
+@define-color accent_fg_color #0f1320;
+@define-color destructive_color #f07075;
+@define-color destructive_bg_color #e5484d;
+@define-color destructive_fg_color #14080a;
+@define-color error_color #f07075;
+@define-color error_bg_color #e5484d;
+@define-color error_fg_color #14080a;
+@define-color success_color #46c08a;
+@define-color warning_color #e2b55a;
+@define-color window_bg_color #181c25;
+@define-color window_fg_color #e6edf3;
+@define-color view_bg_color #10141b;
+@define-color view_fg_color #e6edf3;
+@define-color headerbar_bg_color #151922;
+@define-color headerbar_fg_color #e6edf3;
+@define-color headerbar_backdrop_color #181c25;
+@define-color sidebar_bg_color #151922;
+@define-color sidebar_fg_color #e6edf3;
+@define-color card_bg_color #1a202b;
+@define-color card_fg_color #e6edf3;
+@define-color dialog_bg_color #1a202b;
+@define-color dialog_fg_color #e6edf3;
+@define-color popover_bg_color #1a202b;
+@define-color popover_fg_color #e6edf3;
+
+:root {
+    --accent-color: #5cb6e4;
+    --accent-bg-color: #1793d1;
+    --accent-fg-color: #0f1320;
+    --destructive-color: #f07075;
+    --destructive-bg-color: #e5484d;
+    --destructive-fg-color: #14080a;
+    --error-color: #f07075;
+    --error-bg-color: #e5484d;
+    --error-fg-color: #14080a;
+    --success-color: #46c08a;
+    --warning-color: #e2b55a;
+    --window-bg-color: #181c25;
+    --window-fg-color: #e6edf3;
+    --view-bg-color: #10141b;
+    --view-fg-color: #e6edf3;
+    --headerbar-bg-color: #151922;
+    --headerbar-fg-color: #e6edf3;
+    --headerbar-backdrop-color: #181c25;
+    --sidebar-bg-color: #151922;
+    --sidebar-fg-color: #e6edf3;
+    --sidebar-backdrop-color: #151922;
+    --card-bg-color: #1a202b;
+    --card-fg-color: #e6edf3;
+    --dialog-bg-color: #1a202b;
+    --dialog-fg-color: #e6edf3;
+    --popover-bg-color: #1a202b;
+    --popover-fg-color: #e6edf3;
+}
+
+/* One radius, as in GTK 3 and xfwm4: 4 px for windows and dialogs, 3 px for controls. */
+:root {
+    --window-radius: 4px;
+    --dialog-radius: 4px;
+    --alert-radius: 4px;
+}
+
+window.csd, window.dialog, window.messagedialog, dialog.alert sheet,
+floating-sheet > sheet, .dialog-contents {
+    border-radius: 4px;
+}
+
+button, entry, progressbar > trough, progressbar > trough > progress {
+    border-radius: 3px;
+}
+
+/* The H3XD toggle for check boxes and switches, as in GTK 3. The pictures lie next to the
+   copy of this file in ~/.config/gtk-4.0, in h3xd-assets. */
+checkbutton check {
+    min-width: 48px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    color: transparent;
+    -gtk-icon-source: none;
+    background: url("h3xd-assets/toggle-off.svg") center / 48px 20px no-repeat;
+}
+
+checkbutton:hover check {
+    background-image: url("h3xd-assets/toggle-off-hover.svg");
+}
+
+checkbutton check:checked {
+    background-image: url("h3xd-assets/toggle-on.svg");
+}
+
+checkbutton:hover check:checked {
+    background-image: url("h3xd-assets/toggle-on-hover.svg");
+}
+
+checkbutton check:indeterminate {
+    background-image: url("h3xd-assets/toggle-mixed.svg");
+}
+
+checkbutton:hover check:indeterminate {
+    background-image: url("h3xd-assets/toggle-mixed-hover.svg");
+}
+
+checkbutton check:disabled, switch:disabled {
+    opacity: 0.4;
+}
+
+switch {
+    min-width: 44px;
+    min-height: 12px;
+    padding: 4px 2px;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: url("h3xd-assets/track-off.svg") center / 48px 20px no-repeat;
+}
+
+switch:hover {
+    background-image: url("h3xd-assets/track-off-hover.svg");
+}
+
+switch:checked {
+    background-image: url("h3xd-assets/track-on.svg");
+}
+
+switch:checked:hover {
+    background-image: url("h3xd-assets/track-on-hover.svg");
+}
+
+switch > image {
+    opacity: 0;
+}
+
+switch > slider {
+    min-width: 22px;
+    min-height: 12px;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: url("h3xd-assets/knob-off.svg") center / 16px 12px no-repeat;
+}
+
+switch:hover > slider {
+    background-image: url("h3xd-assets/knob-off-hover.svg");
+}
+
+switch:checked > slider {
+    background-image: url("h3xd-assets/knob-on.svg");
+}

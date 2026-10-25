@@ -1,0 +1,36 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-store
+pkgver=1.0.3
+pkgrel=2
+pkgdesc='H3XD Apps: installs applications from the Arch Linux repositories and Flathub'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# polkit-gnome asks for the password when an Arch app is installed or removed.
+depends=('coreutils'
+         'flatpak'
+         'gdk-pixbuf2'
+         'gtk3'
+         'h3xd-shell'
+         'pacman'
+         'polkit'
+         'polkit-gnome'
+         'python'
+         'python-gobject')
+install=h3xd-store.install
+# Sources are files tracked next to this PKGBUILD in git.
+source=('h3xd-store'
+        'store-helper'
+        'catalog.json'
+        'org.h3xd.store.policy'
+        'h3xd-store.desktop')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm755 h3xd-store "$pkgdir/usr/bin/h3xd-store"
+  install -Dm755 store-helper "$pkgdir/usr/lib/h3xd/store-helper"
+  install -Dm644 catalog.json "$pkgdir/usr/share/h3xd/store/catalog.json"
+  install -Dm644 org.h3xd.store.policy "$pkgdir/usr/share/polkit-1/actions/org.h3xd.store.policy"
+  install -Dm644 h3xd-store.desktop "$pkgdir/usr/share/applications/h3xd-store.desktop"
+}

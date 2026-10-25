@@ -1,4 +1,64 @@
-# H3XD prompt for every zsh user. grml's /etc/zsh/zshrc sources this file at its end,
-# after setting up its own prompt, so starship replaces that prompt with the H3XD one
-# from ~/.config/starship.toml.
+# H3XD shell for every zsh user, design 2f. grml's /etc/zsh/zshrc sources this file near
+# its end, after it has switched on its own prompt and set its aliases, and ~/.zshrc runs
+# after it, so anything here can be overridden there. Colours are slots of the H3XD
+# terminal palette, so they follow it.
+
+# Prompt: the H3XD blocks from /usr/share/h3xd unless the account keeps its own config.
+if [[ -z $STARSHIP_CONFIG && ! -e ${XDG_CONFIG_HOME:-$HOME/.config}/starship.toml ]]; then
+    export STARSHIP_CONFIG=/usr/share/h3xd/starship.toml
+fi
+# grml redraws its own prompt before every line from a precmd hook; switching the prompt
+# theme off removes that hook, otherwise it overwrites starship's prompt each time.
+(( $+functions[prompt] )) && prompt off
 eval "$(starship init zsh)"
+
+# Greeting: the system summary in each new terminal tab. Shells started inside it, ssh
+# and the text console stay quiet; touch ~/.config/h3xd/no-greeting to switch it off.
+if [[ -o interactive && -n $VTE_VERSION && -z $H3XD_GREETED ]] \
+        && [[ ! -e ${XDG_CONFIG_HOME:-$HOME/.config}/h3xd/no-greeting ]] \
+        && (( $+commands[fastfetch] )); then
+    export H3XD_GREETED=1
+    fastfetch
+fi
+
+# ls in colour: folders blue, programs green, links cyan; rights, sizes and dates muted.
+# GNU ls stays reachable as "command ls".
+if (( $+commands[eza] )); then
+    export EZA_COLORS="ur=38;2;139;149;165:uw=38;2;139;149;165:ux=38;2;139;149;165:ue=38;2;139;149;165:gr=38;2;139;149;165:gw=38;2;139;149;165:gx=38;2;139;149;165:tr=38;2;139;149;165:tw=38;2;139;149;165:tx=38;2;139;149;165:su=38;2;139;149;165:sf=38;2;139;149;165:xa=38;2;139;149;165:xx=38;2;75;83;102:sn=37:sb=37:df=37:ds=37:da=38;2;139;149;165:hd=4;37:di=1;94:ex=1;32:ln=36:or=1;31:bd=33:cd=33:pi=35:so=35:lp=36"
+    alias ls='eza --group-directories-first --classify=auto --no-user --time-style="+%b %d"'
+    alias ll='ls -l'
+    alias la='ls -la'
+    alias lt='ls --tree --level=2'
+fi
+
+# Commands in colour while they are typed: known commands green, unknown red, options
+# yellow, strings light yellow, paths blue; suggestions from history in grey.
+if [[ -r /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+    source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+if [[ -r /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]]; then
+    source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=9'
+    ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=13'
+    ZSH_HIGHLIGHT_STYLES[alias]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[suffix-alias]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[global-alias]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[builtin]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[function]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[command]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[precommand]='fg=10,underline'
+    ZSH_HIGHLIGHT_STYLES[hashed-command]='fg=10'
+    ZSH_HIGHLIGHT_STYLES[path]='fg=12'
+    ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=12'
+    ZSH_HIGHLIGHT_STYLES[globbing]='fg=14'
+    ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=11'
+    ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=11'
+    ZSH_HIGHLIGHT_STYLES[single-quoted-argument]='fg=3'
+    ZSH_HIGHLIGHT_STYLES[double-quoted-argument]='fg=3'
+    ZSH_HIGHLIGHT_STYLES[dollar-quoted-argument]='fg=3'
+    ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]='fg=14'
+    ZSH_HIGHLIGHT_STYLES[commandseparator]='fg=1'
+    ZSH_HIGHLIGHT_STYLES[redirection]='fg=1'
+    ZSH_HIGHLIGHT_STYLES[comment]='fg=8'
+fi

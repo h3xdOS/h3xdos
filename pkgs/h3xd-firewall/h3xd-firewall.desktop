@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Firewall
+GenericName=Firewall
+Comment=Switch the firewall on and off, allow services and manage ufw rules
+Exec=h3xd-firewall
+Icon=h3xd-firewall
+Terminal=false
+StartupNotify=true
+Categories=System;Security;
+Keywords=firewall;ufw;ports;security;network;block;allow;

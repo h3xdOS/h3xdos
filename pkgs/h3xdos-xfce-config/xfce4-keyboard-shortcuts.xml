@@ -6,6 +6,7 @@
        Super+1..5, Super+Shift+1..5  switch to workspace, move the window there
        Super+arrows, Super+D         dock the window, tile the workspace (h3xd-dock)
        Super+Q, Super+L, Super+E     close the window, lock the screen, files
+       volume and microphone keys    h3xd-volume, which shows the level on screen
      A custom set replaces the default set entirely, so every default is repeated here.
      Workspaces go through h3xd-dock and not xfwm4: while Super alone opens the launcher,
      xfsettingsd holds the Super key and xfwm4 never sees Super+1; xfwm4 keeps its defaults.
@@ -66,6 +67,10 @@
       <property name="Print" type="string" value="xfce4-screenshooter"/>
       <property name="&lt;Alt&gt;Print" type="string" value="xfce4-screenshooter -w"/>
       <property name="&lt;Shift&gt;Print" type="string" value="xfce4-screenshooter -r"/>
+      <property name="XF86AudioRaiseVolume" type="string" value="h3xd-volume --raise"/>
+      <property name="XF86AudioLowerVolume" type="string" value="h3xd-volume --lower"/>
+      <property name="XF86AudioMute" type="string" value="h3xd-volume --mute"/>
+      <property name="XF86AudioMicMute" type="string" value="h3xd-volume --mic-mute"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;f" type="string" value="thunar"/>
       <property name="&lt;Primary&gt;&lt;Alt&gt;Escape" type="string" value="xkill"/>
       <property name="&lt;Primary&gt;&lt;Shift&gt;Escape" type="string" value="xfce4-taskmanager"/>

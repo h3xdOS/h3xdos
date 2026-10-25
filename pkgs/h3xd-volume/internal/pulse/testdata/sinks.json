@@ -1,0 +1,67 @@
+[
+ {
+  "index": 73,
+  "state": "SUSPENDED",
+  "name": "alsa_output.pci-0000_00_05.0.analog-stereo",
+  "description": "Built-in Audio Analog Stereo",
+  "driver": "PipeWire",
+  "sample_specification": "s16le 2ch 48000Hz",
+  "channel_map": "front-left,front-right",
+  "owner_module": 4294967295,
+  "mute": false,
+  "volume": {
+   "front-left": {
+    "value": 26214,
+    "value_percent": "40%",
+    "db": "-23.88 dB"
+   },
+   "front-right": {
+    "value": 26214,
+    "value_percent": "40%",
+    "db": "-23.88 dB"
+   }
+  },
+  "balance": 0.0,
+  "base_volume": {
+   "value": 65536,
+   "value_percent": "100%",
+   "db": "0.00 dB"
+  },
+  "monitor_source": "alsa_output.pci-0000_00_05.0.analog-stereo.monitor",
+  "latency": {
+   "actual": 0.0,
+   "configured": 0.0
+  },
+  "flags": [
+   "HARDWARE",
+   "HW_MUTE_CTRL",
+   "HW_VOLUME_CTRL",
+   "DECIBEL_VOLUME",
+   "LATENCY"
+  ],
+  "properties": {
+   "device.icon_name": "audio-card-analog",
+   "device.bus": "pci",
+   "device.class": "sound",
+   "media.class": "Audio/Sink",
+   "node.name": "alsa_output.pci-0000_00_05.0.analog-stereo",
+   "device.description": "Built-in Audio",
+   "device.form_factor": "internal",
+   "device.name": "alsa_card.pci-0000_00_05.0"
+  },
+  "ports": [
+   {
+    "name": "analog-output-lineout",
+    "description": "Line Out",
+    "type": "Line",
+    "priority": 9000,
+    "availability_group": "Legacy 2",
+    "availability": "availability unknown"
+   }
+  ],
+  "active_port": "analog-output-lineout",
+  "formats": [
+   "pcm"
+  ]
+ }
+]

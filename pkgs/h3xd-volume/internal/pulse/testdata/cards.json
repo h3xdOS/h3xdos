@@ -1,0 +1,90 @@
+[
+ {
+  "index": 69,
+  "name": "alsa_card.pci-0000_00_05.0",
+  "driver": "alsa",
+  "owner_module": null,
+  "properties": {
+   "media.class": "Audio/Device",
+   "device.bus": "pci",
+   "device.form_factor": "internal",
+   "device.name": "alsa_card.pci-0000_00_05.0",
+   "device.description": "Built-in Audio",
+   "device.icon_name": "audio-card-analog-pci"
+  },
+  "profiles": {
+   "off": {
+    "description": "Off",
+    "sinks": 0,
+    "sources": 0,
+    "priority": 0,
+    "available": true
+   },
+   "output:analog-stereo+input:analog-stereo": {
+    "description": "Analog Stereo Duplex",
+    "sinks": 1,
+    "sources": 1,
+    "priority": 6565,
+    "available": true
+   },
+   "output:analog-stereo": {
+    "description": "Analog Stereo Output",
+    "sinks": 1,
+    "sources": 0,
+    "priority": 6500,
+    "available": true
+   },
+   "input:analog-stereo": {
+    "description": "Analog Stereo Input",
+    "sinks": 0,
+    "sources": 1,
+    "priority": 65,
+    "available": true
+   },
+   "pro-audio": {
+    "description": "Pro Audio",
+    "sinks": 1,
+    "sources": 1,
+    "priority": 1,
+    "available": true
+   }
+  },
+  "active_profile": "output:analog-stereo+input:analog-stereo",
+  "ports": {
+   "analog-input-linein": {
+    "description": "Line In",
+    "type": "Line",
+    "priority": 8100,
+    "latency_offset": "0 usec",
+    "availability_group": "Legacy 1",
+    "availability": "availability unknown",
+    "properties": {
+     "port.type": "line",
+     "port.availability-group": "Legacy 1",
+     "card.profile.port": "0"
+    },
+    "profiles": [
+     "input:analog-stereo",
+     "output:analog-stereo+input:analog-stereo"
+    ]
+   },
+   "analog-output-lineout": {
+    "description": "Line Out",
+    "type": "Line",
+    "priority": 9000,
+    "latency_offset": "0 usec",
+    "availability_group": "Legacy 2",
+    "availability": "availability unknown",
+    "properties": {
+     "port.type": "line",
+     "port.availability-group": "Legacy 2",
+     "card.profile.port": "1"
+    },
+    "profiles": [
+     "output:analog-stereo",
+     "output:analog-stereo+input:analog-stereo"
+    ]
+   }
+  }
+ }
+]

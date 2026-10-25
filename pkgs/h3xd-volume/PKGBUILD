@@ -1,0 +1,70 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-volume
+pkgver=1.0.5
+pkgrel=4
+pkgdesc='H3XD Volume: outputs, inputs, programs and sound cards in the H3XD look, with the volume keys (Go, GTK 3)'
+arch=('x86_64')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# pactl and parec come from libpulse and talk to PipeWire through pipewire-pulse.
+depends=('cairo'
+         'fontconfig'
+         'gdk-pixbuf2'
+         'glib2'
+         'glibc'
+         'gtk3'
+         'hicolor-icon-theme'
+         'libpulse'
+         'pango'
+         'pipewire-pulse')
+makedepends=('go')
+# The [h3xdos] repository carries no debug packages.
+options=('!debug')
+# Sources are the Go module next to this PKGBUILD in git; the gotk3 bindings are fetched
+# by go and checked against go.sum.
+source=('go.mod' 'go.sum' 'h3xd-volume.desktop' 'h3xd-volume.svg' 'h3xd-microphone.svg'
+        'h3xd-microphone-muted.svg')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+# The knob of the sliders: the hexagon of the H3XD toggle (h3xd-theme), as name and fill.
+_knob='M5 1H13L17 8L13 15H5L1 8Z'
+_knob_looks=('knob #e6edf3' 'knob-active #5cb6e4' 'knob-muted #8b95a5')
+
+prepare() {
+  # makepkg takes single files as sources, not the cmd and internal trees.
+  cp -r "$startdir/cmd" "$startdir/internal" "$srcdir/"
+  export GOPATH="$srcdir/gopath" GOFLAGS="-modcacherw" GOTOOLCHAIN=local
+  go mod download
+}
+
+build() {
+  export CGO_CPPFLAGS="$CPPFLAGS" CGO_CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+  export CGO_CXXFLAGS="$CXXFLAGS" CGO_LDFLAGS="$LDFLAGS"
+  export GOPATH="$srcdir/gopath" GOTOOLCHAIN=local
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+  go build -o build/ ./cmd/...
+  local look name fill
+  mkdir -p knobs
+  for look in "${_knob_looks[@]}"; do
+    read -r name fill <<<"$look"
+    printf '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 18 16"><path d="%s" fill="%s"/></svg>\n' \
+      "$_knob" "$fill" > "knobs/$name.svg"
+  done
+}
+
+check() {
+  export CGO_CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+  export GOPATH="$srcdir/gopath" GOFLAGS="-mod=readonly -modcacherw" GOTOOLCHAIN=local
+  go test ./...
+}
+
+package() {
+  install -Dm755 build/h3xd-volume "$pkgdir/usr/bin/h3xd-volume"
+  install -Dm644 -t "$pkgdir/usr/share/h3xd/volume" knobs/*.svg
+  install -Dm644 h3xd-volume.desktop "$pkgdir/usr/share/applications/h3xd-volume.desktop"
+  install -Dm644 h3xd-volume.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/h3xd-volume.svg"
+  # The H3XD icons have no microphone; these follow their audio-volume icons.
+  install -Dm644 -t "$pkgdir/usr/share/icons/hicolor/scalable/status" \
+    h3xd-microphone.svg h3xd-microphone-muted.svg
+}

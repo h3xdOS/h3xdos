@@ -1,0 +1,5 @@
+# Flatpak apps read the H3XD colours for GTK 4 from ~/.config/gtk-4.0 (session-update keeps
+# them there); only on the first install, so that removing the override sticks.
+post_install() {
+  flatpak override --system --filesystem=xdg-config/gtk-4.0:ro
+}

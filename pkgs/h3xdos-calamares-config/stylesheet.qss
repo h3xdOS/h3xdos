@@ -60,24 +60,41 @@ QListView::item:selected, QTreeView::item:selected {
     color: #e6edf3;
 }
 
-QCheckBox::indicator, QRadioButton::indicator {
+/* Check boxes are the H3XD toggle of h3xd-theme, as in GTK. */
+QCheckBox::indicator {
+    width: 48px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    image: url(/usr/share/h3xd/gtk-4.0/h3xd-assets/toggle-off.svg);
+}
+
+QCheckBox::indicator:hover {
+    image: url(/usr/share/h3xd/gtk-4.0/h3xd-assets/toggle-off-hover.svg);
+}
+
+QCheckBox::indicator:checked {
+    image: url(/usr/share/h3xd/gtk-4.0/h3xd-assets/toggle-on.svg);
+}
+
+QCheckBox::indicator:checked:hover {
+    image: url(/usr/share/h3xd/gtk-4.0/h3xd-assets/toggle-on-hover.svg);
+}
+
+QCheckBox::indicator:indeterminate {
+    image: url(/usr/share/h3xd/gtk-4.0/h3xd-assets/toggle-mixed.svg);
+}
+
+QCheckBox {
+    spacing: 14px;
+}
+
+QRadioButton::indicator {
     width: 16px;
     height: 16px;
     background-color: #10141b;
     border: 2px solid #3a4253;
-}
-
-QCheckBox::indicator {
-    border-radius: 4px;
-}
-
-QRadioButton::indicator {
     border-radius: 9px;
-}
-
-QCheckBox::indicator:checked {
-    background-color: #1793d1;
-    border-color: #1793d1;
 }
 
 QRadioButton::indicator:checked {

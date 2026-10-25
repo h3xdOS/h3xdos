@@ -84,8 +84,12 @@
       <property name="use-label" type="bool" value="false"/>
       <property name="enable-single-row" type="bool" value="true"/>
     </property>
+    <!-- One row keeps tray icons inside the 40 px bar of the 60 px panel; left click opens
+         the menu, since apps such as Discord do nothing on a plain activate. -->
     <property name="plugin-10" type="string" value="systray">
       <property name="square-icons" type="bool" value="false"/>
+      <property name="single-row" type="bool" value="true"/>
+      <property name="menu-is-primary" type="bool" value="true"/>
     </property>
     <property name="plugin-11" type="string" value="actions"/>
   </property>

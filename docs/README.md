@@ -14,6 +14,13 @@ instalátor, nainstalovaný systém má desktop Xfce 4.20 ve vlastním vzhledu H
 - Ovládání ve stylu Hyprlandu nad Xfce (Super+T, Super+1 až 5, dokování oken), vlastní
   vyhledávání aplikací, výběr Wi-Fi, kalendář a přihlašovací i zamykací obrazovka podle
   návrhu v2. Přehled zkratek je v [AKTUALIZACE.md](AKTUALIZACE.md).
+- Obchod **H3XD Apps** (`h3xd-store`): vybrané aplikace z repozitářů Archu a celý
+  Flathub, instalace a průběh přímo v kartě aplikace.
+- **Firewall** (`h3xd-firewall`): ufw zapnout a vypnout, služby jedním přepínačem,
+  pravidla včetně vypínání, zablokovaná spojení a výchozí politiky.
+- **Volume** (`h3xd-volume`): hlasitost výstupů, vstupů a jednotlivých programů, měřič
+  úrovně, vyvážení, konektory a profily zvukových karet; klávesy hlasitosti s ukazatelem
+  na obrazovce.
 - `apt` a `kali-apt` spouští skutečný apt v kontejnerech Ubuntu 24.04 a Kali Rolling
   (distrobox), Arch systém zůstává čistý.
 
@@ -58,6 +65,9 @@ Boot test projde, když sériová konzole v BIOS i UEFI ukáže `h3xd login:`.
 | `pkgs/h3xdos-branding` | os-release, ikony a logo H3XD, tapeta, GRUB téma, Plymouth, fastfetch |
 | `pkgs/h3xd-theme` | GTK 3, xfwm4 a xfce4-notifyd téma `h3xd-dark` |
 | `pkgs/h3xd-icons` | motiv ikon `H3XD` (SVG v šestiúhelníku), chybějící ikony dědí z Papirus-Dark |
+| `pkgs/h3xd-firewall` | aplikace Firewall nad ufw v Go (GTK 3 přes gotk3), pomocník `firewall-helper` přes polkit |
+| `pkgs/h3xd-store` | obchod H3XD Apps: katalog `catalog.json`, pomocník `store-helper` přes polkit, Flathub přes libflatpak |
+| `pkgs/h3xd-volume` | správce hlasitosti Volume v Go (GTK 3 přes gotk3) nad PipeWire přes `pactl`, klávesy hlasitosti a ukazatel na obrazovce |
 | `pkgs/h3xdos-xfce-config` | panel, klávesové zkratky, terminál, prompt (zsh + starship), LightDM |
 | `pkgs/h3xdos-containers` | `apt`, `kali-apt`, `h3xdos-box`, manifest distroboxu |
 | `pkgs/h3xdos-calamares-config` | konfigurace instalátoru, branding, live relace jen s instalátorem |

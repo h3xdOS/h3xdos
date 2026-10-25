@@ -18,6 +18,7 @@ System Update postupně:
 | Drivers | `h3xdos-drivers` zjistí grafickou kartu a virtuální stroj a doinstaluje chybějící ovladače |
 | H3XD applications | jednou nainstaluje výchozí aplikace (`h3xdos-apps`), pokud chybí |
 | Kontejnery | aktualizuje kontejnery Ubuntu a Kali (`apt`, `kali-apt`), pokud existují |
+| Flatpak applications | `flatpak update` aplikací z Flathubu a úklid nepoužívaných runtime |
 | H3XD releases | ukáže nejnovější vydání ISO na GitHubu |
 
 Na konci vypíše, jestli je potřeba restart: po aktualizaci jádra nebo prostředí H3XD.
@@ -35,6 +36,122 @@ Verze 1.0 má starší System Update, který zná jen první krok. Postup:
 3. Restartujte počítač.
 
 V terminálu totéž: `h3xdos-update && h3xdos-update`, potom `sudo reboot`.
+
+## Aktualizace 1.0.5 (25. 10. 2026)
+
+Po aktualizaci restartujte počítač; klávesy hlasitosti nastaví až další přihlášení.
+
+- **Volume** (v menu Multimedia, nebo Super a „vol", nebo kliknutím na `vol` v panelu):
+  vlastní správce hlasitosti H3XD místo dřívějšího Volume Control (pavucontrol). Změny
+  odjinud, například zapojená sluchátka, ukáže hned.
+  - **Output:** výstup, kterým zvuk hraje (při více zařízeních výběr nahoře), hlasitost
+    a Mute, měřič úrovně toho, co hraje, konektor (například reproduktory nebo
+    sluchátka) a vyvážení vlevo a vpravo. Pod tím další výstupy, tlačítko Use z nich
+    udělá hlavní. Přepínač **Louder than 100 %** pustí hlasitost až na 150 %.
+  - **Input:** totéž pro mikrofony; měřič ukáže, jestli mikrofon slyší.
+  - **Applications:** hlasitost každého programu, který hraje nebo nahrává, a kam hraje
+    nebo odkud nahrává. Program nahrávající zvuk počítače si vybere „Monitor of …".
+  - **Devices:** profil každé zvukové karty, například zvuk přes HDMI, jen výstup nebo
+    vypnuto.
+- **Klávesy hlasitosti** (hlasitost nahoru a dolů po 5 %, ztlumení, ztlumení mikrofonu)
+  fungují a ukážou úroveň dole uprostřed obrazovky. Účtům, které si tyto klávesy
+  přiřadily k něčemu jinému, zůstanou jejich zkratky.
+- pavucontrol zůstává nainstalovaný, nové instalace ho nemají. Odebrání:
+  `sudo pacman -Rns pavucontrol`.
+
+## Aktualizace 1.0.4.1 (25. 10. 2026)
+
+Vzhled ovládacích prvků. Po aktualizaci restartujte počítač; aplikace spuštěné před
+aktualizací si nový vzhled načtou až po novém přihlášení.
+
+- **Přepínač H3XD:** zaškrtávací políčka a přepínače mají tvar šestiúhelníkového
+  přepínače z návrhu. Vypnuto je šedé s jezdcem vlevo, zapnuto modré s jezdcem vpravo,
+  neurčitý stav (část položek vybraná) tmavě modrý s jezdcem uprostřed. Platí pro
+  aplikace GTK 3 (nastavení Xfce, Thunar, aplikace H3XD), GTK 4 a libadwaita včetně
+  aplikací z Flathubu a pro instalátor. V nabídkách a seznamech je přepínač menší.
+- **Kabel v panelu:** při připojení kabelem ukazuje panel ikonu RJ45 z ikon H3XD a název
+  síťového rozhraní (například `enp3s0` nebo `eth0`) místo dlouhého „Wired connection 1".
+  Název spojení je v bublině po najetí myší, kliknutí otevře nastavení sítě.
+- **Karty v dialozích** (například nastavení panelu) mají barvu okna místo šedé.
+
+## Aktualizace 1.0.4 (25. 10. 2026)
+
+- **Firewall** (v menu System, nebo Super a „fire"): vlastní aplikace H3XD nad ufw. Při
+  otevření chce heslo; platí, dokud okno nezavřete.
+  - **Overview:** firewall zapnout a vypnout, co projde bez pravidla, kolik je pravidel
+    a které služby jsou povolené.
+  - **Rules:** všechna pravidla ufw v pořadí, v jakém je ufw zkouší (první, které sedí,
+    rozhoduje). Barevný štítek ALLOW, DENY, REJECT nebo LIMIT, směr IN nebo OUT, port,
+    adresa a komentář. Přepínačem jde pravidlo vypnout a zase zapnout, Delete ho smaže.
+    **Add rule:** akce, směr, port (`22`, `80,443`, `6000:6007`), protokol, odkud a
+    komentář; v části Advanced cílová adresa, síťové rozhraní, logování a pozice.
+  - **Services:** jedním přepínačem SSH, web server, KDE Connect, LocalSend, sdílení
+    složek Windows, tiskárny, mDNS, Syncthing, Steam Remote Play, Minecraft server
+    a vzdálená plocha. Pod tím programy, které na počítači čekají na spojení, a zda je
+    firewall pustí (Allow přidá pravidlo).
+  - **Activity:** spojení, která firewall zablokoval (z logu jádra), s tlačítkem Allow.
+  - **Settings:** co se stane se spojením bez pravidla (příchozí, odchozí, směrované),
+    úroveň logování a reset firewallu.
+- Firewall se aktualizací nezapne sám. Po zapnutí v aplikaci startuje i s počítačem.
+  Když běží SSH server, aplikace před zapnutím přidá pravidlo pro SSH, aby se vzdálený
+  přístup nezavřel.
+- ufw nezná vypnutá pravidla; H3XD si je ukládá v `/var/lib/h3xd-firewall/disabled.json`
+  a při zapnutí je vrací (blokující pravidla na začátek, povolující na konec).
+
+## Aktualizace 1.0.3.1 (25. 10. 2026)
+
+Terminál podle návrhu. Po aktualizaci restartujte počítač; při přihlášení H3XD přenastaví
+okno terminálu ve vašem účtu.
+
+- **Uvítání:** nové okno nebo karta terminálu ukáže logo H3XD a přehled systému
+  (fastfetch) s paletou barev. Vypnutí: `mkdir -p ~/.config/h3xd && touch ~/.config/h3xd/no-greeting`.
+- **Prompt v blocích:** uživatel, složka a ve složce s gitem větev, na druhém řádku
+  červené `>`. Vpravo délka příkazu nad 2 s, kód chyby a čas. Dřívější verze ukazovaly místo něj prompt grml
+  (`h3x@h3xd ~ %`), který ten z návrhu před každým řádkem přepsal. Vlastní
+  `~/.config/starship.toml` má přednost; dosavadní nezměněná kopie z dřívějších verzí se
+  smaže, aby se prompt dál aktualizoval.
+- **Barvy při psaní:** známý příkaz zeleně, neznámý červeně, přepínače žlutě, cesty modře;
+  šedě návrh dokončení z historie (šipka vpravo ho přijme).
+- **Barevné `ls`** (eza): složky modře s lomítkem, spustitelné soubory zeleně, práva a data
+  tlumeně. `ll` dlouhý výpis, `la` i skryté soubory, `lt` strom. Původní `ls` je
+  `command ls`.
+- **pacman v barvách** (`Color` v `/etc/pacman.conf`).
+- **Okno terminálu:** odsazení textu od okrajů, větší výchozí velikost 100x28, blikající
+  blokový kurzor v modré, bez zvonku. Odsazení přichází z `~/.config/gtk-3.0/gtk.css`
+  (import `/usr/share/h3xd/gtk-3.0/user.css`), protože terminál si jinak nastaví vlastní.
+
+## Aktualizace 1.0.3 (25. 10. 2026)
+
+Po aktualizaci restartujte počítač. Při prvním přihlášení H3XD upraví lištu a barvy
+aplikací GTK 4 ve vašem účtu.
+
+- **Obchod H3XD Apps** (v menu nebo Super a „apps"): vybrané aplikace z repozitářů Archu
+  a celý Flathub v jednom okně. Vlevo Discover, Installed a kategorie, nahoře hledání.
+  Tlačítko Install, průběh instalace v kartě aplikace, pak Open. V části Installed jde
+  aplikace odebrat.
+  - Aplikace z Archu chtějí heslo. Instalace zároveň aktualizuje celý systém (Arch nesnese
+    instalaci ze starších seznamů balíčků), takže může trvat déle; když se aktualizuje
+    jádro, karta řekne, že je potřeba restart.
+  - Aplikace z Flathubu se instalují bez hesla. Steam, Spotify, Heroic a další, které
+    v repozitářích Archu nejsou, jsou tady.
+  - Discord: obchod po instalaci rovnou stáhne samotný Discord (přes 600 MB) a ukáže
+    průběh. Z menu se pak spouští hned.
+- **Aplikace na pozadí:** ikony v liště (Discord a další) jsou v jedné řadě uvnitř lišty.
+  Kliknutí na ikonu otevře menu aplikace (např. Open Discord). Zavřené okno Discordu
+  dál běží v liště.
+- **Aplikace GTK 4** (libadwaita, např. dialogy zenity) jsou tmavé a v barvách H3XD.
+  Menu ikon v liště mají písmo IBM Plex Sans jako ostatní menu.
+- **System Update** aktualizuje i aplikace z Flathubu. Vypnutí: `update_flatpaks=no`
+  v `/etc/h3xdos/update.conf`.
+
+### Proč nejde nainstalovat .deb
+
+Soubory `.deb` jsou balíčky pro Debian a Ubuntu, H3XD stojí na Arch Linuxu. Aplikace
+hledejte v H3XD Apps (repozitáře Archu a Flathub). Program, který existuje jen jako `.deb`,
+poběží v kontejneru Ubuntu (`apt`).
+
+Aplikaci spuštěnou z terminálu ukončí zavření terminálu. Spouštějte ji z menu nebo ze
+spouštěče (Super), pak běží samostatně.
 
 ## Aktualizace 1.0.2.1 (25. 10. 2026)
 

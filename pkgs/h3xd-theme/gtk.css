@@ -143,43 +143,14 @@ entry image, entry placeholder, entry.search placeholder {
     color: #8b95a5;
 }
 
-switch {
-    background-image: none;
-    background-color: #3a4253;
-    border: none;
-    border-radius: 11px;
-}
+/* Check boxes and switches are the H3XD toggle (design "Checkbox / toggle"); their rules
+   are generated with the theme and follow this file, see _toggle_css in the PKGBUILD. */
 
-switch:checked {
-    background-color: #1793d1;
-}
-
-switch slider {
-    background-image: none;
-    background-color: #8b95a5;
-    border: none;
-    border-radius: 4px;
-    margin: 3px;
-}
-
-switch:checked slider {
-    background-color: #0f1320;
-}
-
-check, radio {
+radio {
     background-image: none;
     background-color: #10141b;
     border: 2px solid #3a4253;
     color: #0f1320;
-}
-
-check {
-    border-radius: 4px;
-}
-
-check:checked, check:indeterminate {
-    background-color: #1793d1;
-    border-color: #1793d1;
 }
 
 radio:checked {
@@ -223,11 +194,15 @@ scrollbar slider:hover {
     background-color: #4b5366;
 }
 
+/* Menus use the UI type even when the panel's monospace type would pass down to them,
+   as it does to the menus of tray icons. */
 menu, .menu, .context-menu, popover.background, popover > contents {
     background-color: #1a202b;
     border: none;
     border-radius: 4px;
     color: #e6edf3;
+    font-family: "IBM Plex Sans";
+    font-weight: 400;
 }
 
 menuitem:hover, menu menuitem:hover, modelbutton:hover {
@@ -249,6 +224,11 @@ notebook > header tab {
 notebook > header tab:checked {
     color: #e6edf3;
     box-shadow: inset 0 -2px #1793d1;
+}
+
+/* Pages of tabbed dialogs sit on the window tone instead of Adwaita's grey. */
+notebook > stack:not(:only-child), notebook > stack:not(:only-child):backdrop {
+    background-color: #181c25;
 }
 
 frame > border, .frame {

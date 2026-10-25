@@ -1,0 +1,9 @@
+# GTK 4 and libadwaita applications ignore the GTK 3 theme and read these instead, directly
+# or through the settings portal; without them they draw light.
+[org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+accent-color='blue'
+gtk-theme='h3xd-dark'
+icon-theme='H3XD'
+font-name='IBM Plex Sans 10'
+monospace-font-name='JetBrains Mono 11'

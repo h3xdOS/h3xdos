@@ -1,5 +1,16 @@
+# pacman prints in colour only with Color set, which Arch leaves commented out; H3XD
+# turns it on once. A line edited by hand (anything but "#Color") stays as it is.
+_pacman_color() {
+  sed -i 's/^#Color$/Color/' /etc/pacman.conf
+}
+
 post_install() {
   systemctl --global enable h3xdos-update-check.timer
+  _pacman_color
+}
+
+post_upgrade() {
+  _pacman_color
 }
 
 pre_remove() {

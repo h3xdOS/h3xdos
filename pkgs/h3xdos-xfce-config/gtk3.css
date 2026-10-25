@@ -1,0 +1,3 @@
+/* H3XD rules that GTK 3 applications only take from here, such as the terminal padding;
+   your own rules go below. */
+@import url("file:///usr/share/h3xd/gtk-3.0/user.css");

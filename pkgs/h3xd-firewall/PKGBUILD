@@ -1,0 +1,60 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-firewall
+pkgver=1.0.4
+pkgrel=2
+pkgdesc='H3XD Firewall: ufw on and off, services and rules in the H3XD look (Go, GTK 3)'
+arch=('x86_64')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# ss comes from iproute2 and lists the programs that wait for connections.
+depends=('cairo'
+         'fontconfig'
+         'gdk-pixbuf2'
+         'glib2'
+         'glibc'
+         'gtk3'
+         'hicolor-icon-theme'
+         'iproute2'
+         'pango'
+         'polkit'
+         'polkit-gnome'
+         'systemd'
+         'ufw')
+makedepends=('go')
+# The [h3xdos] repository carries no debug packages.
+options=('!debug')
+# Sources are the Go module next to this PKGBUILD in git; the gotk3 bindings are fetched
+# by go and checked against go.sum.
+source=('go.mod' 'go.sum' 'h3xd-firewall.desktop' 'org.h3xd.firewall.policy'
+        'h3xd-firewall.svg')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+prepare() {
+  # makepkg takes single files as sources, not the cmd and internal trees.
+  cp -r "$startdir/cmd" "$startdir/internal" "$srcdir/"
+  export GOPATH="$srcdir/gopath" GOFLAGS="-modcacherw" GOTOOLCHAIN=local
+  go mod download
+}
+
+build() {
+  export CGO_CPPFLAGS="$CPPFLAGS" CGO_CFLAGS="$CFLAGS -Wno-deprecated-declarations"
+  export CGO_CXXFLAGS="$CXXFLAGS" CGO_LDFLAGS="$LDFLAGS"
+  export GOPATH="$srcdir/gopath" GOTOOLCHAIN=local
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+  go build -o build/ ./cmd/...
+}
+
+check() {
+  export GOPATH="$srcdir/gopath" GOFLAGS="-mod=readonly -modcacherw" GOTOOLCHAIN=local
+  go test ./internal/...
+}
+
+package() {
+  install -Dm755 build/h3xd-firewall "$pkgdir/usr/bin/h3xd-firewall"
+  install -Dm755 build/h3xd-firewall-helper "$pkgdir/usr/lib/h3xd/firewall-helper"
+  install -Dm644 h3xd-firewall.desktop "$pkgdir/usr/share/applications/h3xd-firewall.desktop"
+  install -Dm644 org.h3xd.firewall.policy \
+    "$pkgdir/usr/share/polkit-1/actions/org.h3xd.firewall.policy"
+  install -Dm644 h3xd-firewall.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/h3xd-firewall.svg"
+}

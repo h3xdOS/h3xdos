@@ -11,6 +11,12 @@
   <property name="color-selection-background" type="string" value="#14405e"/>
   <property name="color-palette" type="string" value="#10141b;#e5484d;#46c08a;#e2b55a;#1793d1;#a77fe0;#4fb8c9;#c6cbd5;#4b5366;#f07075;#6fd6a6;#efcb83;#5cb6e4;#c2a3ef;#7fd0dc;#e6edf3"/>
   <property name="misc-cursor-shape" type="string" value="TERMINAL_CURSOR_SHAPE_BLOCK"/>
+  <property name="misc-cursor-blinks" type="bool" value="true"/>
+  <property name="misc-default-geometry" type="string" value="100x28"/>
   <property name="misc-menubar-default" type="bool" value="false"/>
+  <property name="misc-bell" type="bool" value="false"/>
+  <property name="color-bold-is-bright" type="bool" value="false"/>
+  <property name="tab-activity-color" type="string" value="#e2b55a"/>
   <property name="scrolling-bar" type="string" value="TERMINAL_SCROLLBAR_NONE"/>
+  <property name="scrolling-lines" type="uint" value="10000"/>
 </channel>
