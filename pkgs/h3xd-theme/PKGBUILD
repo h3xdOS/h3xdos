@@ -1,13 +1,13 @@
 # Maintainer: h3xdOS <https://github.com/h3xdOS>
 
 pkgname=h3xd-theme
-pkgver=1.0.2
+pkgver=1.0.2.1
 pkgrel=1
 pkgdesc='h3xd-dark: GTK 3, xfwm4 and xfce4-notifyd theme of H3XD'
 arch=('any')
 url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')
-depends=('gtk3' 'ttf-ibm-plex' 'ttf-jetbrains-mono')
+depends=('gtk3' 'h3xd-icons' 'ttf-ibm-plex' 'ttf-jetbrains-mono')
 makedepends=('librsvg')
 # Sources are files tracked next to this PKGBUILD in git.
 source=('index.theme' 'gtk.css' 'notify.css' 'themerc')

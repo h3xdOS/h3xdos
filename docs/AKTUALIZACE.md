@@ -36,6 +36,19 @@ Verze 1.0 má starší System Update, který zná jen první krok. Postup:
 
 V terminálu totéž: `h3xdos-update && h3xdos-update`, potom `sudo reboot`.
 
+## Aktualizace 1.0.2.1 (25. 10. 2026)
+
+Po aktualizaci restartujte počítač. Při prvním přihlášení H3XD přepne účet na nové ikony.
+
+- **Ikony H3XD:** vlastní sada ikon v šestiúhelníku a v barvách návrhu, výchozí motiv
+  ikon systému místo Papirus-Dark. Kreslí 140 ikon, které H3XD ukazuje: menu
+  a jeho kategorie, aplikace, složky a místa na ploše a v Thunaru, disky, typy souborů,
+  stav (hlasitost, baterie, Wi-Fi), dialogy, odhlášení a vypnutí.
+- Ikony, které sada zatím nemá, a symbolické ikony v nástrojových lištách bere dál
+  Papirus-Dark. Logo H3XD zůstává ze sady loga ve všech velikostech.
+- Kdo si v **Settings > Appearance > Icons** vybral jiný motiv, tomu aktualizace ikony
+  nezmění. Zpět na nové ikony: vyberte tam **H3XD**.
+
 ## Aktualizace 1.0.2 (24. 10. 2026)
 
 Po aktualizaci restartujte počítač. Při prvním přihlášení H3XD jednou upraví nastavení

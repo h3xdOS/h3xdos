@@ -1,7 +1,7 @@
 # Maintainer: h3xdOS <https://github.com/h3xdOS>
 
 pkgname=h3xdos-xfce-config
-pkgver=2026.10.24
+pkgver=2026.10.25
 pkgrel=1
 pkgdesc='H3XD desktop defaults: Xfce panel, theme and shortcuts, terminal, prompt, LightDM, keyboard'
 arch=('any')
@@ -9,6 +9,7 @@ url='https://github.com/h3xdOS/h3xdos'
 license=('GPL-3.0-or-later')
 depends=('grml-zsh-config'
          'h3xd-greeter'
+         'h3xd-icons'
          'h3xd-shell'
          'h3xd-theme'
          'h3xdos-branding'
@@ -18,7 +19,6 @@ depends=('grml-zsh-config'
          'lightdm-gtk-greeter'
          'network-manager-applet'
          'networkmanager'
-         'papirus-icon-theme'
          'pavucontrol'
          'python'
          'starship'

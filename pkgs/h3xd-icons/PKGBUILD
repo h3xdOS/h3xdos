@@ -1,0 +1,36 @@
+# Maintainer: h3xdOS <https://github.com/h3xdOS>
+
+pkgname=h3xd-icons
+pkgver=1.0.2.1
+pkgrel=2
+pkgdesc='H3XD icon theme: hexagon icons for the menu, files, places, devices and status'
+arch=('any')
+url='https://github.com/h3xdOS/h3xdos'
+license=('GPL-3.0-or-later')
+# Names the theme does not draw yet come from Papirus-Dark, which it inherits; the H3XD
+# logo comes from hicolor (h3xdos-branding) in every size.
+depends=('hicolor-icon-theme' 'papirus-icon-theme')
+# Sources are files tracked next to this PKGBUILD in git.
+source=('index.theme')
+sha256sums=('SKIP')
+# The Whisker menu, the panel actions and the logout dialog ask for the xfsm-* names
+# first, which Papirus-Dark has; these point them at the system-* icons of this theme.
+_session_aliases=('xfsm-hibernate:system-hibernate'
+                  'xfsm-lock:system-lock-screen'
+                  'xfsm-reboot:system-reboot'
+                  'xfsm-shutdown:system-shutdown'
+                  'xfsm-suspend:system-suspend'
+                  'xfsm-switch-user:system-switch-user')
+
+package() {
+  local theme_dir="$pkgdir/usr/share/icons/H3XD"
+  install -Dm644 index.theme "$theme_dir/index.theme"
+  # makepkg takes single files as sources, not the icon tree, so the tree is installed
+  # from next to this PKGBUILD. The icon cache is built by the gtk-update-icon-cache hook.
+  cd "$startdir"
+  find scalable -type f -name '*.svg' -exec install -Dm644 '{}' "$theme_dir/{}" ';'
+  local alias
+  for alias in "${_session_aliases[@]}"; do
+    ln -s "${alias#*:}.svg" "$theme_dir/scalable/apps/${alias%%:*}.svg"
+  done
+}

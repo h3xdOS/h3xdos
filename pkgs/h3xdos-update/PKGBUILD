@@ -1,7 +1,7 @@
 # Maintainer: h3xdOS <https://github.com/h3xdOS>
 
 pkgname=h3xdos-update
-pkgver=2026.10.24
+pkgver=2026.10.25
 pkgrel=1
 pkgdesc='H3XD updater: pacman, drivers, default apps, the Ubuntu and Kali containers, GitHub releases'
 arch=('any')

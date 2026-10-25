@@ -14,7 +14,7 @@ readonly network_timeout_s=15
 readonly updates_available=10
 # Xfce reads the theme of these at login and their xfconf defaults when xfconfd starts,
 # which outlives a quick log out and back in; a restart loads both.
-readonly session_packages='^(h3xd-greeter|h3xd-shell|h3xd-theme|h3xdos-branding|h3xdos-xfce-config)$'
+readonly session_packages='^(h3xd-greeter|h3xd-icons|h3xd-shell|h3xd-theme|h3xdos-branding|h3xdos-xfce-config)$'
 
 usage() {
     echo "usage: h3xdos-update [--check | --notify]" >&2

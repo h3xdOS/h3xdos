@@ -19,6 +19,8 @@ LEVEL_FILE = os.path.join(STATE_HOME, "h3xd", "session-level")
 AUTOSTART = os.path.join(CONFIG_HOME, "autostart")
 PANEL_BUS_NAME = "org.xfce.Panel"
 PANEL_WAIT_S = 20
+ICON_THEME = "H3XD"
+PREVIOUS_ICON_THEME = "Papirus-Dark"
 
 
 def log(message):
@@ -128,7 +130,19 @@ def step_1_0_2():
         subprocess.run(["xfce4-panel", "-r"], check=True)
 
 
-STEPS = [step_1_0_2]
+def step_1_0_2_1():
+    """The H3XD icon theme in place of the former default; an icon theme the account
+    picked itself stays."""
+    channel, path = "xsettings", "/Net/IconThemeName"
+    current = subprocess.run(["xfconf-query", "-c", channel, "-p", path], capture_output=True,
+                             text=True, check=False)
+    # A missing property exits non-zero and gets the theme as well.
+    if current.returncode == 0 and current.stdout.strip() != PREVIOUS_ICON_THEME:
+        return
+    xfconf(channel, "-p", path, "-n", "-t", "string", "-s", ICON_THEME)
+
+
+STEPS = [step_1_0_2, step_1_0_2_1]
 
 
 def main():

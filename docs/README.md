@@ -57,6 +57,7 @@ Boot test projde, když sériová konzole v BIOS i UEFI ukáže `h3xd login:`.
 | `pkgs/calamares` | PKGBUILD z AUR s ověřením podpisu release (klíč v `keys/pgp/`) |
 | `pkgs/h3xdos-branding` | os-release, ikony a logo H3XD, tapeta, GRUB téma, Plymouth, fastfetch |
 | `pkgs/h3xd-theme` | GTK 3, xfwm4 a xfce4-notifyd téma `h3xd-dark` |
+| `pkgs/h3xd-icons` | motiv ikon `H3XD` (SVG v šestiúhelníku), chybějící ikony dědí z Papirus-Dark |
 | `pkgs/h3xdos-xfce-config` | panel, klávesové zkratky, terminál, prompt (zsh + starship), LightDM |
 | `pkgs/h3xdos-containers` | `apt`, `kali-apt`, `h3xdos-box`, manifest distroboxu |
 | `pkgs/h3xdos-calamares-config` | konfigurace instalátoru, branding, live relace jen s instalátorem |
